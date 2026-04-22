@@ -79,7 +79,8 @@
             <div
                 class="absolute top-6 left-6 flex items-center gap-3 bg-black/20 backdrop-blur-md px-4 py-2 rounded-xl border border-white/5">
                 <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span class="text-[10px] font-bold text-white uppercase tracking-widest">Alex Chen (Remote)</span>
+                <span class="text-[10px] font-bold text-white uppercase tracking-widest">Live Session</span>
+                <span id="connectionStatus" class="text-[10px] font-bold uppercase tracking-widest" style="color:#ffffff">CONNECTING...</span>
             </div>
         </div>
 
@@ -170,7 +171,24 @@
         const iceConfig = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                {
+                    urls: 'turn:openrelay.metered.ca:80',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                },
+                {
+                    urls: 'turn:openrelay.metered.ca:443',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                },
+                {
+                    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                }
             ]
         };
 
@@ -192,6 +210,20 @@
                 if (event.candidate && ws?.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({ type: 'ice', candidate: event.candidate, room: roomId }));
                 }
+            };
+
+            peerConnection.onconnectionstatechange = () => {
+                const state = peerConnection.connectionState;
+                console.log('[WebRTC] Connection state:', state);
+                const statusEl = document.getElementById('connectionStatus');
+                if (statusEl) {
+                    statusEl.textContent = state.toUpperCase();
+                    statusEl.style.color = state === 'connected' ? '#00e5ff' : state === 'failed' ? '#ff3333' : '#ffffff';
+                }
+            };
+
+            peerConnection.oniceconnectionstatechange = () => {
+                console.log('[ICE] State:', peerConnection.iceConnectionState);
             };
         }
 
@@ -216,7 +248,7 @@
                     case 'offer':
                         await createPeerConnection();
                         await peerConnection.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-                        const answer = await peerConnection.createAnswer();
+                        const answer = await peerConnection.createAnswer({ offerToReceiveVideo: true, offerToReceiveAudio: true });
                         await peerConnection.setLocalDescription(answer);
                         ws.send(JSON.stringify({ type: 'answer', sdp: answer, room: roomId }));
                         break;
