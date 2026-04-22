@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.py" },
+    { "source": "/analyze", "destination": "/api/index.py" },
+    { "source": "/health", "destination": "/api/index.py" },
+    { "source": "/", "destination": "/frontend/index.html" },
+    { "source": "/dashboard", "destination": "/frontend/dashboard/index.html" },
+    { "source": "/dashboard/(.*)", "destination": "/frontend/dashboard/$1" },
+    { "source": "/meet", "destination": "/frontend/meet/index.html" },
+    { "source": "/assets/(.*)", "destination": "/frontend/assets/$1" }
+  ]
+}

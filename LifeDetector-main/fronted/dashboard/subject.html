@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subject Node - LifeDetector Forensic Suite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../assets/css/globals.css">
+    <script src="../assets/js/theme.js"></script>
+    <style>
+        .flash-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            display: none;
+            transition: background-color 0.1s ease;
+        }
+        
+        .glass {
+            background: var(--card-bg);
+            backdrop-filter: blur(25px) saturate(180%);
+            -webkit-backdrop-filter: blur(25px) saturate(180%);
+            border: 1px solid var(--border-color);
+        }
+
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+        }
+
+        @keyframes loading {
+            0% { transform: scaleX(0); }
+            100% { transform: scaleX(1); }
+        }
+    </style>
+</head>
+<body class="bg-[var(--bg-color)] min-h-screen flex flex-col items-center justify-center overflow-hidden text-[var(--text-color)]">
+    <canvas id="bg-canvas"></canvas>
+    
+    <!-- Top Bar -->
+    <div class="fixed top-0 right-0 p-8 z-50">
+        <button class="theme-toggle-btn p-2 hover:bg-white/5 rounded-full transition-colors"></button>
+    </div>
+
+    <div class="flash-overlay" id="flashOverlay"></div>
+
+    <div class="relative z-10 flex flex-col items-center gap-8 text-center px-6 max-w-lg">
+        <!-- Status Indicator -->
+        <div class="w-24 h-24 border-4 border-[var(--primary-neon)] rounded-full flex items-center justify-center animate-pulse">
+            <div class="w-16 h-16 bg-[var(--primary-neon)] opacity-20 rounded-full"></div>
+        </div>
+
+        <!-- Typography -->
+        <div class="space-y-4">
+            <h1 class="text-4xl font-black tracking-[0.2em] uppercase italic">Subject_<span class="text-[var(--primary-neon)]">Node</span></h1>
+            <p class="text-[var(--text-secondary)] font-mono text-[10px] tracking-[0.4em] uppercase">Status: <span class="text-[var(--primary-neon)] animate-pulse">Waiting_Handshake</span></p>
+        </div>
+
+        <!-- Video Container -->
+        <div class="w-full h-80 rounded-[3rem] overflow-hidden glass border-white/10 relative bg-black shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)]">
+            <video id="subjectVideo" class="w-full h-full object-cover" autoplay muted playsinline></video>
+            <div id="videoOverlay" class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm transition-all duration-500">
+                <div class="text-[10px] text-[var(--primary-neon)] uppercase font-black tracking-[0.5em] mb-4">Awaiting Verification</div>
+                <div class="w-48 h-1 bg-white/5 rounded-full overflow-hidden">
+                    <div class="h-full w-full bg-[var(--primary-neon)] origin-left animate-[loading_3s_infinite_linear] shadow-[0_0_10px_var(--primary-neon)]"></div>
+                </div>
+            </div>
+        </div>
+
+        <p id="statusMsg" class="text-[10px] text-[var(--text-secondary)] uppercase tracking-[0.5em] font-black mt-12 transition-all opacity-60">Ready for Security Challenge</p>
+    </div>
+
+    <script>
+        /**
+         * PLEXUS ENGINE (Exact Mirror of Landing Page)
+         */
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, particles = [];
+        const COLORS = { primary: [0, 229, 255], accent: [255, 51, 51] };
+        let mouse = { x: null, y: null, radius: 150 };
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            initParticles();
+        }
+
+        window.addEventListener('resize', resize);
+        window.addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
+        window.addEventListener('mouseout', () => { mouse.x = null; mouse.y = null; });
+
+        class Particle {
+            constructor() {
+                this.baseX = Math.random() * width;
+                this.baseY = Math.random() * height;
+                this.x = this.baseX;
+                this.y = this.baseY;
+                this.vx = 0;
+                this.vy = 0;
+                this.angle = Math.random() * Math.PI * 2;
+                this.orbitSpeed = Math.random() * 0.01 + 0.005;
+                this.orbitRadius = Math.random() * 30 + 10;
+                this.size = Math.random() * 2 + 1;
+                this.isAccent = Math.random() > 0.85;
+                this.color = this.isAccent ? COLORS.accent : COLORS.primary;
+            }
+
+            update() {
+                this.angle += this.orbitSpeed;
+                let tx = this.baseX + Math.cos(this.angle) * this.orbitRadius;
+                let ty = this.baseY + Math.sin(this.angle) * this.orbitRadius;
+
+                if (mouse.x !== null) {
+                    let dx = mouse.x - this.x;
+                    let dy = mouse.y - this.y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < mouse.radius) {
+                        let force = (mouse.radius - dist) / mouse.radius;
+                        tx -= (dx / dist) * force * 50;
+                        ty -= (dy / dist) * force * 50;
+                    }
+                }
+
+                this.vx += (tx - this.x) * 0.02;
+                this.vy += (ty - this.y) * 0.02;
+                this.vx *= 0.85;
+                this.vy *= 0.85;
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgb(${this.color[0]}, ${this.color[1]}, ${this.color[2]})`;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = ctx.fillStyle;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            const num = Math.floor((width * height) / 12000);
+            for (let i = 0; i < num; i++) particles.push(new Particle());
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+            ctx.fillStyle = isDark ? '#040d16' : '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+
+            particles.forEach(p => p.update());
+
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    let d = Math.hypot(particles[i].x - particles[j].x, particles[i].y - particles[j].y);
+                    if (d < 180) {
+                        ctx.beginPath();
+                        let opacity = (1 - d / 180) * 0.4;
+                        const c = (particles[i].isAccent || particles[j].isAccent) ? COLORS.accent : COLORS.primary;
+                        ctx.strokeStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${opacity})`;
+                        ctx.lineWidth = 1;
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+            particles.forEach(p => p.draw());
+        }
+
+        resize();
+        animate();
+
+        /**
+         * FORENSIC LOGIC
+         */
+        const bc = new BroadcastChannel('scanner_channel');
+        const overlay = document.getElementById('flashOverlay');
+        const statusMsg = document.getElementById('statusMsg');
+        const videoOverlay = document.getElementById('videoOverlay');
+        const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const WS_URL = `${WS_PROTOCOL}//${window.location.host}/ws/`;
+
+        // Get Room ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = urlParams.get('room');
+        
+        let pc;
+        let signalingSocket;
+        const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        function initSignaling(stream) {
+            if (!roomId) {
+                statusMsg.textContent = "ERROR: INVALID_INVITATION_LINK";
+                return;
+            }
+
+            signalingSocket = new WebSocket(WS_URL + roomId);
+            
+            signalingSocket.onopen = () => {
+                signalingSocket.send(JSON.stringify({ type: 'FLASH_READY' }));
+            };
+
+            signalingSocket.onmessage = async (event) => {
+                const data = JSON.parse(event.data);
+                if (data.offer) {
+                    await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    signalingSocket.send(JSON.stringify({ answer }));
+                } else if (data.answer) {
+                    await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                } else if (data.candidate) {
+                    try {
+                        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                    } catch (e) {
+                        console.error('Error adding received ice candidate', e);
+                    }
+                } else if (data.type === 'START_FLASH') {
+                    startChallenge();
+                }
+            };
+
+            createPeerConnection(stream);
+        }
+
+        async function createPeerConnection(stream) {
+            pc = new RTCPeerConnection(configuration);
+            
+            stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    signalingSocket.send(JSON.stringify({ candidate: event.candidate }));
+                }
+            };
+        }
+
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(stream => {
+                document.getElementById('subjectVideo').srcObject = stream;
+                initSignaling(stream);
+                videoOverlay.style.opacity = '0';
+                setTimeout(() => videoOverlay.classList.add('hidden'), 500);
+            }).catch(err => {
+                statusMsg.textContent = "ERROR: CAMERA_ACCESS_DENIED";
+                console.error(err);
+            });
+
+        function startChallenge() {
+            statusMsg.textContent = "CHALLENGE_IN_PROGRESS: STAY STILL";
+            statusMsg.classList.add('text-[var(--accent-neon)]');
+            statusMsg.style.opacity = "1";
+            overlay.style.display = 'block';
+
+            const colors = ['#ff0000', '#0000ff', '#00ff00'];
+            let step = 0;
+
+            const interval = setInterval(() => {
+                if (step < colors.length) {
+                    overlay.style.backgroundColor = colors[step];
+                    step++;
+                } else {
+                    clearInterval(interval);
+                    overlay.style.display = 'none';
+                    statusMsg.textContent = "CHALLENGE_COMPLETE: VERIFYING...";
+                    statusMsg.classList.remove('text-[var(--accent-neon)]');
+                    statusMsg.classList.add('text-[var(--primary-neon)]');
+                    
+                    // Signal completion via WebSocket
+                    if (signalingSocket) {
+                        signalingSocket.send(JSON.stringify({ type: 'FLASH_COMPLETE', result: 'PASS' }));
+                    }
+                    
+                    setTimeout(() => {
+                        statusMsg.textContent = "Ready for Security Challenge";
+                        statusMsg.classList.remove('text-[var(--primary-neon)]');
+                        statusMsg.style.opacity = "0.6";
+                    }, 3000);
+                }
+            }, 500);
+        }
+    </script>
+</body>
+</html>
