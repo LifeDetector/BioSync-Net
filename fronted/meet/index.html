@@ -155,23 +155,131 @@
         }
         resize(); animate();
 
-        // Control Button Interaction
-        const btns = document.querySelectorAll('.control-btn');
+        // Setup Cameras + WebRTC
+        const remoteVideo = document.getElementById('remoteVideo');
+        const localVideo = document.getElementById('localVideo');
+
+        const roomId = new URLSearchParams(window.location.search).get('room') || 'default-room';
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const wsUrl = `${wsProtocol}://${window.location.host}/ws/${roomId}`;
+
+        let ws = null;
+        let peerConnection = null;
         let localStream = null;
 
+        const iceConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+
+        async function createPeerConnection() {
+            if (peerConnection) peerConnection.close();
+            peerConnection = new RTCPeerConnection(iceConfig);
+
+            if (localStream) {
+                localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+            }
+
+            peerConnection.ontrack = event => {
+                remoteVideo.srcObject = event.streams[0];
+            };
+
+            peerConnection.onicecandidate = event => {
+                if (event.candidate && ws?.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'ice', candidate: event.candidate, room: roomId }));
+                }
+            };
+        }
+
+        function initWebSocket() {
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => console.log('[WS] Subject connected, room:', roomId);
+
+            ws.onmessage = async event => {
+                let msg;
+                try { msg = JSON.parse(event.data); } catch { return; }
+
+                switch (msg.type) {
+                    case 'room_info':
+                        // Subject just waits — operator will send offer
+                        break;
+
+                    case 'ready':
+                        // Subject doesn't initiate — ignore
+                        break;
+
+                    case 'offer':
+                        await createPeerConnection();
+                        await peerConnection.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+                        const answer = await peerConnection.createAnswer();
+                        await peerConnection.setLocalDescription(answer);
+                        ws.send(JSON.stringify({ type: 'answer', sdp: answer, room: roomId }));
+                        break;
+
+                    case 'answer':
+                        if (peerConnection) {
+                            await peerConnection.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+                        }
+                        break;
+
+                    case 'ice':
+                        if (peerConnection && msg.candidate) {
+                            try { await peerConnection.addIceCandidate(new RTCIceCandidate(msg.candidate)); }
+                            catch (e) { console.warn('[ICE]', e); }
+                        }
+                        break;
+
+                    case 'peer_left':
+                        remoteVideo.srcObject = null;
+                        if (peerConnection) { peerConnection.close(); peerConnection = null; }
+                        break;
+
+                    case 'START_FLASH':
+                        startFlashChallenge();
+                        break;
+                }
+            };
+
+            ws.onerror = err => console.error('[WS] Error:', err);
+            ws.onclose = () => console.log('[WS] Disconnected');
+        }
+
+        // Flash challenge response
+        function startFlashChallenge() {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;transition:background 0.1s';
+            document.body.appendChild(overlay);
+            const colors = ['#ff0000', '#0000ff', '#00ff00'];
+            let step = 0;
+            const iv = setInterval(() => {
+                if (step < colors.length) {
+                    overlay.style.background = colors[step++];
+                } else {
+                    clearInterval(iv);
+                    document.body.removeChild(overlay);
+                    if (ws?.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'FLASH_COMPLETE', result: 'PASS', room: roomId }));
+                    }
+                }
+            }, 500);
+        }
+
+        // Control Button Interaction
+        const btns = document.querySelectorAll('.control-btn');
         btns.forEach((btn, index) => {
             btn.addEventListener('click', () => {
                 if (btn.classList.contains('end-call')) return;
-                
                 btn.classList.toggle('bg-white/40');
                 btn.classList.toggle('text-[var(--primary-neon)]');
-                
                 if (localStream) {
-                    if (index === 0) { // Mute
+                    if (index === 0) {
                         const audioTrack = localStream.getAudioTracks()[0];
                         if (audioTrack) audioTrack.enabled = !audioTrack.enabled;
                     }
-                    if (index === 1) { // Video
+                    if (index === 1) {
                         const videoTrack = localStream.getVideoTracks()[0];
                         if (videoTrack) videoTrack.enabled = !videoTrack.enabled;
                         document.getElementById('localVideo').style.opacity = videoTrack.enabled ? '1' : '0.2';
@@ -181,27 +289,27 @@
             });
         });
 
-        // Setup Cameras
-        const remoteVideo = document.getElementById('remoteVideo');
-        const localVideo = document.getElementById('localVideo');
-
-        navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(s => {
-            localStream = s;
-            localVideo.srcObject = s;
-        }).catch(err => {
-            console.error("Camera Error:", err);
-            // Fallback for demo if camera is blocked
-            localVideo.src = "https://assets.mixkit.co/videos/preview/mixkit-man-working-on-his-laptop-308-large.mp4";
-            localVideo.loop = true;
+        // End call
+        document.querySelector('.control-btn.end-call').addEventListener('click', () => {
+            if (ws) ws.close();
+            if (peerConnection) peerConnection.close();
+            window.location.href = '../index.html';
         });
 
-        remoteVideo.src = "https://assets.mixkit.co/videos/preview/mixkit-woman-working-at-home-office-42686-large.mp4";
-        remoteVideo.loop = true;
-
-        // Draggable PiP Implementation
-        const dragElem = document.getElementById('localVideoContainer');
+        // Start camera then connect WebSocket
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(s => {
+                localStream = s;
+                localVideo.srcObject = s;
+                initWebSocket();
+            })
+            .catch(err => {
+                console.error('Camera Error:', err);
+            });
         let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
         
+        // Draggable PiP Implementation
+        const dragElem = document.getElementById('localVideoContainer');
         dragElem.onmousedown = dragMouseDown;
 
         function dragMouseDown(e) {
