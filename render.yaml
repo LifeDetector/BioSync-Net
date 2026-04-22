@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: biosync-net
+    runtime: python
+    rootDir: BioSync-Net-main
+    buildCommand: pip install -r Backend/biosync-net-backend/biosync-net-backend/requirements.txt
+    startCommand: cd Backend/biosync-net-backend/biosync-net-backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
