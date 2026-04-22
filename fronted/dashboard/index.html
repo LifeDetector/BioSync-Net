@@ -769,68 +769,112 @@
             const verdictModal = document.getElementById('verdictModal');
 
             // --- WebRTC & Signaling ---
-            let pc;
-            let signalingSocket;
-            const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+            const iceConfig = {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
+            };
+            let pc = null;
+            let signalingSocket = null;
+            let localStream = null;
 
             function initSignaling() {
                 signalingSocket = new WebSocket(WS_URL + roomId);
-                
+
+                signalingSocket.onopen = () => {
+                    addLog('SYSTEM: SIGNALING_CONNECTED — WAITING FOR SUBJECT', 'var(--primary-neon)');
+                };
+
                 signalingSocket.onmessage = async (event) => {
-                    const data = JSON.parse(event.data);
-                    if (data.offer) {
-                        await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-                        const answer = await pc.createAnswer();
-                        await pc.setLocalDescription(answer);
-                        signalingSocket.send(JSON.stringify({ answer }));
-                    } else if (data.answer) {
-                        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-                    } else if (data.candidate) {
-                        try {
-                            await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-                        } catch (e) {
-                            console.error('Error adding received ice candidate', e);
-                        }
-                    } else if (data.type === 'FLASH_READY') {
-                        addLog('SYSTEM: SUBJECT_NODE_READY', 'var(--primary-neon)');
-                    } else if (data.type === 'FLASH_COMPLETE') {
-                        addLog('SYSTEM: CHALLENGE_RESPONSE_RECEIVED', 'var(--primary-neon)');
+                    let data;
+                    try { data = JSON.parse(event.data); } catch { return; }
+
+                    switch (data.type) {
+                        case 'room_info':
+                            addLog(`SYSTEM: ROOM_ACTIVE — PEERS: ${data.peer_count}`, 'var(--primary-neon)');
+                            break;
+
+                        case 'ready':
+                            // Subject joined — operator sends the offer
+                            addLog('NETWORK: SUBJECT_NODE_DETECTED — INITIATING_HANDSHAKE', 'var(--primary-neon)');
+                            await startCall();
+                            break;
+
+                        case 'answer':
+                            if (pc) {
+                                await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                                addLog('NETWORK: HANDSHAKE_COMPLETE', 'var(--primary-neon)');
+                            }
+                            break;
+
+                        case 'ice':
+                            if (pc && data.candidate) {
+                                try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); }
+                                catch (e) { console.warn('[ICE]', e); }
+                            }
+                            break;
+
+                        case 'peer_left':
+                            addLog('SYSTEM: SUBJECT_NODE_DISCONNECTED', 'var(--accent-neon)');
+                            remoteVideo.srcObject = null;
+                            if (pc) { pc.close(); pc = null; }
+                            break;
+
+                        case 'FLASH_COMPLETE':
+                            addLog('SYSTEM: CHALLENGE_RESPONSE_RECEIVED', 'var(--primary-neon)');
+                            break;
                     }
                 };
+
+                signalingSocket.onerror = () => addLog('ERROR: SIGNALING_SOCKET_FAILED', 'var(--accent-neon)');
+                signalingSocket.onclose = () => addLog('SYSTEM: SIGNALING_DISCONNECTED', 'var(--accent-neon)');
             }
 
-            async function createPeerConnection(stream) {
-                pc = new RTCPeerConnection(configuration);
-                
-                stream.getTracks().forEach(track => pc.addTrack(track, stream));
+            async function createPeerConnection() {
+                if (pc) pc.close();
+                pc = new RTCPeerConnection(iceConfig);
 
-                pc.onicecandidate = (event) => {
-                    if (event.candidate) {
-                        signalingSocket.send(JSON.stringify({ candidate: event.candidate }));
-                    }
-                };
+                if (localStream) {
+                    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+                }
 
                 pc.ontrack = (event) => {
                     addLog('NETWORK: INCOMING_STREAM_DETECTED', 'var(--primary-neon)');
                     remoteVideo.srcObject = event.streams[0];
                 };
 
-                // Create and send offer
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                signalingSocket.send(JSON.stringify({ offer }));
+                pc.onicecandidate = (event) => {
+                    if (event.candidate && signalingSocket?.readyState === WebSocket.OPEN) {
+                        signalingSocket.send(JSON.stringify({ type: 'ice', candidate: event.candidate, room: roomId }));
+                    }
+                };
+
+                pc.onconnectionstatechange = () => {
+                    const state = pc.connectionState;
+                    if (state === 'connected') addLog('NETWORK: PEER_CONNECTED', 'var(--primary-neon)');
+                    else if (state === 'failed' || state === 'disconnected') addLog('NETWORK: PEER_LOST', 'var(--accent-neon)');
+                };
             }
 
-            // Check backend health on load
+            async function startCall() {
+                await createPeerConnection();
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                signalingSocket.send(JSON.stringify({ type: 'offer', sdp: offer, room: roomId }));
+                addLog('NETWORK: OFFER_SENT', 'var(--primary-neon)');
+            }
+
+            // Check backend health on load then start signaling
             (async () => {
                 try {
                     const res = await fetch(`${BACKEND_URL}/health`);
                     const data = await res.json();
                     addLog(`SYSTEM: BACKEND_CONNECTED (${data.version})`, 'var(--primary-neon)');
-                    initSignaling();
                 } catch (e) {
-                    addLog('WARNING: BACKEND_OFFLINE - Start server on port 8000', 'var(--accent-neon)');
+                    addLog('WARNING: BACKEND_OFFLINE', 'var(--accent-neon)');
                 }
+                initSignaling();
             })();
 
             let mediaRecorder;
@@ -885,7 +929,7 @@
             initiateBtn.addEventListener('click', async () => {
                 addLog('SYSTEM: INITIATING_CHALLENGE_PROTOCOL...', 'var(--primary-neon)');
                 // Broadcast via WebSocket to the remote subject
-                signalingSocket.send(JSON.stringify({ type: 'START_FLASH' }));
+                signalingSocket.send(JSON.stringify({ type: 'START_FLASH', room: roomId }));
 
                 initiateBtn.disabled = true;
                 initiateBtn.style.opacity = '0.5';
@@ -993,15 +1037,15 @@
             });
 
             navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(s => {
+                localStream = s;
                 document.getElementById('localVideo').srcObject = s;
-                createPeerConnection(s);
             });
 
             // Initialize Invitation Link
             const inviteInput = document.getElementById('inviteLinkInput');
             const copyInviteBtn = document.getElementById('copyInviteBtn');
-            const baseUrl = window.location.href.split('dashboard/')[0];
-            inviteInput.value = baseUrl + 'dashboard/subject.html?room=' + roomId;
+            const baseUrl = window.location.origin;
+            inviteInput.value = baseUrl + '/meet?room=' + roomId;
 
             copyInviteBtn.addEventListener('click', () => {
                 inviteInput.select();
