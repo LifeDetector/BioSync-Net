@@ -186,85 +186,162 @@
         animate();
 
         /**
-         * FORENSIC LOGIC
+         * FORENSIC LOGIC — WebRTC Subject Node
          */
-        const bc = new BroadcastChannel('scanner_channel');
         const overlay = document.getElementById('flashOverlay');
         const statusMsg = document.getElementById('statusMsg');
         const videoOverlay = document.getElementById('videoOverlay');
-        const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const WS_URL = `${WS_PROTOCOL}//${window.location.host}/ws/`;
 
-        // Get Room ID from URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const roomId = urlParams.get('room');
-        
-        let pc;
-        let signalingSocket;
-        const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+        // ── Room + WebSocket config ──────────────────────────────────────────
+        const roomId = new URLSearchParams(window.location.search).get('room');
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const wsUrl = roomId
+            ? `${wsProtocol}://${window.location.host}/ws/${roomId}`
+            : null;
 
-        function initSignaling(stream) {
-            if (!roomId) {
-                statusMsg.textContent = "ERROR: INVALID_INVITATION_LINK";
+        let ws = null;
+        let peerConnection = null;
+        let localStream = null;
+
+        const iceConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+
+        // ── Status helper ────────────────────────────────────────────────────
+        function setStatus(msg, color) {
+            statusMsg.textContent = msg;
+            if (color) statusMsg.style.color = color;
+        }
+
+        // ── Remote video (doctor's feed shown PiP) ───────────────────────────
+        function getRemoteVideo() {
+            let rv = document.getElementById('remoteVideo');
+            if (!rv) {
+                rv = document.createElement('video');
+                rv.id = 'remoteVideo';
+                rv.autoplay = true;
+                rv.playsinline = true;
+                rv.style.cssText = `
+                    position: fixed;
+                    bottom: 16px;
+                    right: 16px;
+                    width: 180px;
+                    height: 135px;
+                    border-radius: 10px;
+                    object-fit: cover;
+                    border: 2px solid var(--primary-neon, #00e5ff);
+                    background: #000;
+                    z-index: 200;
+                `;
+                document.body.appendChild(rv);
+            }
+            return rv;
+        }
+
+        // ── PeerConnection ────────────────────────────────────────────────────
+        async function createPeerConnection() {
+            if (peerConnection) peerConnection.close();
+            peerConnection = new RTCPeerConnection(iceConfig);
+
+            if (localStream) {
+                localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+            }
+
+            peerConnection.ontrack = event => {
+                const rv = getRemoteVideo();
+                if (rv.srcObject !== event.streams[0]) {
+                    rv.srcObject = event.streams[0];
+                    setStatus('CONNECTED_TO_OPERATOR', 'var(--primary-neon, #00e5ff)');
+                }
+            };
+
+            peerConnection.onicecandidate = event => {
+                if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'ice', candidate: event.candidate, room: roomId }));
+                }
+            };
+
+            peerConnection.onconnectionstatechange = () => {
+                const state = peerConnection.connectionState;
+                if (state === 'connected') setStatus('CONNECTED_TO_OPERATOR', 'var(--primary-neon, #00e5ff)');
+                else if (state === 'disconnected' || state === 'failed') setStatus('OPERATOR_DISCONNECTED', '#ea4335');
+                else if (state === 'connecting') setStatus('HANDSHAKE_IN_PROGRESS...', '#f4b400');
+            };
+        }
+
+        // ── WebSocket signaling ───────────────────────────────────────────────
+        function initWebSocket() {
+            if (!wsUrl) {
+                setStatus('ERROR: INVALID_INVITATION_LINK', '#ea4335');
                 return;
             }
 
-            signalingSocket = new WebSocket(WS_URL + roomId);
-            
-            signalingSocket.onopen = () => {
-                signalingSocket.send(JSON.stringify({ type: 'FLASH_READY' }));
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('[WS] Subject connected, room:', roomId);
+                setStatus('WAITING_FOR_HANDSHAKE', '#f4b400');
             };
 
-            signalingSocket.onmessage = async (event) => {
-                const data = JSON.parse(event.data);
-                if (data.offer) {
-                    await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-                    const answer = await pc.createAnswer();
-                    await pc.setLocalDescription(answer);
-                    signalingSocket.send(JSON.stringify({ answer }));
-                } else if (data.answer) {
-                    await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-                } else if (data.candidate) {
-                    try {
-                        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-                    } catch (e) {
-                        console.error('Error adding received ice candidate', e);
-                    }
-                } else if (data.type === 'START_FLASH') {
-                    startChallenge();
+            ws.onmessage = async event => {
+                let msg;
+                try { msg = JSON.parse(event.data); } catch { return; }
+
+                switch (msg.type) {
+                    case 'room_info':
+                        // Subject is always peer 2+ — just wait for offer
+                        setStatus('OPERATOR_FOUND__AWAITING_OFFER', '#f4b400');
+                        break;
+
+                    case 'ready':
+                        // Subject doesn't initiate — ignore (operator sends offer)
+                        break;
+
+                    case 'offer':
+                        await createPeerConnection();
+                        await peerConnection.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+                        const answer = await peerConnection.createAnswer();
+                        await peerConnection.setLocalDescription(answer);
+                        ws.send(JSON.stringify({ type: 'answer', sdp: answer, room: roomId }));
+                        setStatus('HANDSHAKE_IN_PROGRESS...', '#f4b400');
+                        break;
+
+                    case 'answer':
+                        if (peerConnection) {
+                            await peerConnection.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+                        }
+                        break;
+
+                    case 'ice':
+                        if (peerConnection && msg.candidate) {
+                            try { await peerConnection.addIceCandidate(new RTCIceCandidate(msg.candidate)); }
+                            catch (e) { console.warn('[ICE] Failed:', e); }
+                        }
+                        break;
+
+                    case 'peer_left':
+                        setStatus('OPERATOR_DISCONNECTED', '#ea4335');
+                        const rv = document.getElementById('remoteVideo');
+                        if (rv) rv.srcObject = null;
+                        if (peerConnection) { peerConnection.close(); peerConnection = null; }
+                        break;
+
+                    case 'START_FLASH':
+                        startChallenge();
+                        break;
                 }
             };
 
-            createPeerConnection(stream);
+            ws.onerror = () => setStatus('ERROR: CONNECTION_FAILED', '#ea4335');
+            ws.onclose = () => setStatus('DISCONNECTED', '#ea4335');
         }
 
-        async function createPeerConnection(stream) {
-            pc = new RTCPeerConnection(configuration);
-            
-            stream.getTracks().forEach(track => pc.addTrack(track, stream));
-
-            pc.onicecandidate = (event) => {
-                if (event.candidate) {
-                    signalingSocket.send(JSON.stringify({ candidate: event.candidate }));
-                }
-            };
-        }
-
-        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-            .then(stream => {
-                document.getElementById('subjectVideo').srcObject = stream;
-                initSignaling(stream);
-                videoOverlay.style.opacity = '0';
-                setTimeout(() => videoOverlay.classList.add('hidden'), 500);
-            }).catch(err => {
-                statusMsg.textContent = "ERROR: CAMERA_ACCESS_DENIED";
-                console.error(err);
-            });
-
+        // ── Flash challenge (kept from original) ─────────────────────────────
         function startChallenge() {
-            statusMsg.textContent = "CHALLENGE_IN_PROGRESS: STAY STILL";
-            statusMsg.classList.add('text-[var(--accent-neon)]');
-            statusMsg.style.opacity = "1";
+            setStatus('CHALLENGE_IN_PROGRESS: STAY STILL', 'var(--accent-neon, #ff3333)');
             overlay.style.display = 'block';
 
             const colors = ['#ff0000', '#0000ff', '#00ff00'];
@@ -272,28 +349,33 @@
 
             const interval = setInterval(() => {
                 if (step < colors.length) {
-                    overlay.style.backgroundColor = colors[step];
-                    step++;
+                    overlay.style.backgroundColor = colors[step++];
                 } else {
                     clearInterval(interval);
                     overlay.style.display = 'none';
-                    statusMsg.textContent = "CHALLENGE_COMPLETE: VERIFYING...";
-                    statusMsg.classList.remove('text-[var(--accent-neon)]');
-                    statusMsg.classList.add('text-[var(--primary-neon)]');
-                    
-                    // Signal completion via WebSocket
-                    if (signalingSocket) {
-                        signalingSocket.send(JSON.stringify({ type: 'FLASH_COMPLETE', result: 'PASS' }));
-                    }
-                    
+                    setStatus('CHALLENGE_COMPLETE: VERIFYING...', 'var(--primary-neon, #00e5ff)');
+                    if (ws) ws.send(JSON.stringify({ type: 'FLASH_COMPLETE', result: 'PASS' }));
                     setTimeout(() => {
-                        statusMsg.textContent = "Ready for Security Challenge";
-                        statusMsg.classList.remove('text-[var(--primary-neon)]');
-                        statusMsg.style.opacity = "0.6";
+                        setStatus('Ready for Security Challenge', null);
+                        statusMsg.style.opacity = '0.6';
                     }, 3000);
                 }
             }, 500);
         }
+
+        // ── Start camera then signaling ───────────────────────────────────────
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(stream => {
+                localStream = stream;
+                document.getElementById('subjectVideo').srcObject = stream;
+                videoOverlay.style.opacity = '0';
+                setTimeout(() => videoOverlay.classList.add('hidden'), 500);
+                initWebSocket();
+            })
+            .catch(err => {
+                setStatus('ERROR: CAMERA_ACCESS_DENIED', '#ea4335');
+                console.error(err);
+            });
     </script>
 </body>
 </html>
