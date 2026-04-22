@@ -842,6 +842,8 @@
                 pc.ontrack = (event) => {
                     addLog('NETWORK: INCOMING_STREAM_DETECTED', 'var(--primary-neon)');
                     remoteVideo.srcObject = event.streams[0];
+                    remoteVideo.muted = false;
+                    remoteVideo.play().catch(() => {});
                 };
 
                 pc.onicecandidate = (event) => {
@@ -865,8 +867,17 @@
                 addLog('NETWORK: OFFER_SENT', 'var(--primary-neon)');
             }
 
-            // Check backend health on load then start signaling
+            // Start camera FIRST, then signaling — so localStream is ready when offer fires
             (async () => {
+                try {
+                    const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    localStream = s;
+                    document.getElementById('localVideo').srcObject = s;
+                    addLog('SENSOR: LOCAL_CAMERA_READY', 'var(--primary-neon)');
+                } catch (e) {
+                    addLog('WARNING: CAMERA_ACCESS_DENIED — ' + e.message, 'var(--accent-neon)');
+                }
+
                 try {
                     const res = await fetch(`${BACKEND_URL}/health`);
                     const data = await res.json();
@@ -1034,11 +1045,6 @@
             browserBtn.addEventListener('click', () => {
                 browserModal.classList.remove('opacity-0', 'pointer-events-none');
                 addLog('SYSTEM: SECURE_BROWSER_NODE_OPENED', 'var(--primary-neon)');
-            });
-
-            navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(s => {
-                localStream = s;
-                document.getElementById('localVideo').srcObject = s;
             });
 
             // Initialize Invitation Link
