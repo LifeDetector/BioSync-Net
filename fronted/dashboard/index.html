@@ -772,7 +772,24 @@
             const iceConfig = {
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    {
+                        urls: 'turn:openrelay.metered.ca:80',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    },
+                    {
+                        urls: 'turn:openrelay.metered.ca:443',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    },
+                    {
+                        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    }
                 ]
             };
             let pc = null;
@@ -854,14 +871,20 @@
 
                 pc.onconnectionstatechange = () => {
                     const state = pc.connectionState;
-                    if (state === 'connected') addLog('NETWORK: PEER_CONNECTED', 'var(--primary-neon)');
-                    else if (state === 'failed' || state === 'disconnected') addLog('NETWORK: PEER_LOST', 'var(--accent-neon)');
+                    if (state === 'connected') addLog('NETWORK: PEER_CONNECTED ✓', 'var(--primary-neon)');
+                    else if (state === 'failed') addLog('NETWORK: PEER_FAILED — ICE NEGOTIATION ERROR', 'var(--accent-neon)');
+                    else if (state === 'disconnected') addLog('NETWORK: PEER_LOST', 'var(--accent-neon)');
+                    else addLog('NETWORK: STATE → ' + state.toUpperCase(), 'var(--primary-neon)');
+                };
+
+                pc.oniceconnectionstatechange = () => {
+                    addLog('ICE: ' + pc.iceConnectionState.toUpperCase(), 'var(--primary-neon)');
                 };
             }
 
             async function startCall() {
                 await createPeerConnection();
-                const offer = await pc.createOffer();
+                const offer = await pc.createOffer({ offerToReceiveVideo: true, offerToReceiveAudio: true });
                 await pc.setLocalDescription(offer);
                 signalingSocket.send(JSON.stringify({ type: 'offer', sdp: offer, room: roomId }));
                 addLog('NETWORK: OFFER_SENT', 'var(--primary-neon)');
