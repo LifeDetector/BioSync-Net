@@ -62,7 +62,7 @@
     <main class="h-screen w-screen flex flex-col p-6">
         <!-- Main Video Container -->
         <div class="flex-1 relative rounded-[2rem] overflow-hidden bg-black shadow-2xl">
-            <video id="remoteVideo" class="w-full h-full object-cover" autoplay playsinline></video>
+            <video id="remoteVideo" class="w-full h-full object-cover" autoplay muted playsinline></video>
 
             <!-- Self View PiP -->
             <div id="localVideoContainer"
@@ -184,6 +184,8 @@
 
             peerConnection.ontrack = event => {
                 remoteVideo.srcObject = event.streams[0];
+                remoteVideo.muted = false;
+                remoteVideo.play().catch(() => {});
             };
 
             peerConnection.onicecandidate = event => {
