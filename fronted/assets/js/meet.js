@@ -305,8 +305,8 @@ function initWebSocket() {
             case 'room_info':
                 // Server tells us how many peers are in the room
                 if (msg.peer_count >= 2) {
-                    // We are the second peer — wait for the first to send us an offer
-                    setStatus('🔵 Peer found, connecting...', '#1a73e8');
+                    // We are the second peer (subject) — redirect to subject dashboard
+                    window.location.href = `/dashboard/subject.html?room=${roomId}`;
                 }
                 break;
 
