@@ -1,12 +1,26 @@
-fastapi
-uvicorn[standard]
-python-multipart
-opencv-python-headless
-mediapipe
-librosa
-scipy
-numpy
-moviepy
-python-dotenv
-soundfile
-websockets
+# BioSync-Net - Core Dependencies
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+python-dotenv>=1.0.1
+websockets>=13.0
+
+# Computer Vision (rPPG + Face/Lip detection)
+opencv-python-headless>=4.10.0
+mediapipe>=0.10.14
+
+# Audio Processing (Spectral Analysis + Wav2Vec)
+librosa>=0.10.2
+soundfile>=0.12.1
+scipy>=1.14.0
+numpy>=2.0.0
+
+# Deep Learning (Wav2Vec 2.0 for voice forensics)
+torch>=2.4.0
+torchaudio>=2.4.0
+transformers>=4.45.0
+
+# Utils
+moviepy>=1.0.3
+scikit-learn>=1.5.0
+pillow>=10.4.0
