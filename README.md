@@ -5,6 +5,10 @@
 
 > “While others detect fake pixels, we detect the absence of life.”
 
+![License](https://img.shields.io/github/license/LifeDetector/BioSync-Net?style=flat-square)
+![Stars](https://img.shields.io/github/stars/LifeDetector/BioSync-Net?style=flat-square)
+![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat-square&logo=python)
+
 ## ✨ Key Features
 - **rPPG Remote Pulse Detection** — detects heartbeat from tiny skin color changes
 - **Spectral Gap Analysis** — finds unnatural frequencies and silence gaps in AI voices
@@ -20,11 +24,14 @@
 ## 📁 Project Structure
 BioSync-Net/
 ├── Backend/                    # FastAPI backend
-├── fronted/                    # Frontend folder (live demo)
+├── frontend/                   # Frontend folder (live demo) ← Updated
 ├── api/                        # API connector
 ├── requirements.txt
 ├── render.yaml
 ├── vercel.json
+├── .gitignore
+├── .env.example
+├── LICENSE
 └── README.md
 
 ## 🚀 Quick Start
@@ -42,7 +49,7 @@ cd Backend/biosync-net-backend
 uvicorn main:app --reload --port 8000
 
 # 4. Open frontend in browser
-# Just double-click fronted/index.html or fronted/meet/
+# Just double-click frontend/index.html or frontend/meet/
 🎯 Why This Project is Awesome
 
 Real-time biometric forensics (not just pixel checking)
