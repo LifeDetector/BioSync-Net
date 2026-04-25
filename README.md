@@ -1,20 +1,53 @@
 # 🚀 BioSync-Net — Next-Gen Deepfake Defense
 
-**Advanced Biometric Deepfake Detection System** using real human signals (pulse, voice, lip-sync, emotion).
+**Advanced Biometric Deepfake Detection System**  
+*Using real human signals (pulse, voice, lip-sync & emotion)*
 
 > “While others detect fake pixels, we detect the absence of life.”
 
-## ✨ Features
-- **rPPG Remote Pulse Detection** — detects heartbeat via skin color changes
-- **Spectral Gap Analysis** — finds unnatural AI voice frequencies
-- **Audio-Visual Cross Sync** — checks lip movement vs speech timing
-- **Flash Verification** + **Emotion Consistency Check** (X-Factor)
+## ✨ Key Features
+- **rPPG Remote Pulse Detection** — detects heartbeat from tiny skin color changes
+- **Spectral Gap Analysis** — finds unnatural frequencies and silence gaps in AI voices
+- **Audio-Visual Cross Sync** — checks if lip movements perfectly match speech timing
+- **Flash Verification** + **Emotion Consistency Check** (Unique X-Factor features)
 
 ## 🛠 Technology Stack
-- **Backend**: Python + FastAPI + WebSocket
+- **Backend**: Python + FastAPI
 - **Computer Vision**: MediaPipe + OpenCV
-- **Audio**: Librosa + Wav2Vec 2.0
-- **Frontend**: HTML/CSS/JS (live demo pages)
-- **Deployment**: Ready for Render / Vercel
+- **Audio Processing**: Librosa + Wav2Vec 2.0
+- **Frontend**: HTML/CSS/JS with live demo pages
 
 ## 📁 Project Structure
+BioSync-Net/
+├── Backend/                    # FastAPI backend
+├── fronted/                    # Frontend folder (live demo)
+├── api/                        # API connector
+├── requirements.txt
+├── render.yaml
+├── vercel.json
+└── README.md
+
+## 🚀 Quick Start
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/LifeDetector/BioSync-Net.git
+cd BioSync-Net
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Run backend
+cd Backend/biosync-net-backend
+uvicorn main:app --reload --port 8000
+
+# 4. Open frontend in browser
+# Just double-click fronted/index.html or fronted/meet/
+🎯 Why This Project is Awesome
+
+Real-time biometric forensics (not just pixel checking)
+Perfect for 2026 deepfake reality
+Strong academic value + live demo ready for presentation
+
+Made with passion by First-Year Applied AI Students • 2026
+⭐ Star this repo if you like it!
