@@ -1,0 +1,44 @@
+{
+  "version": 2,
+  "name": "lifedetector-forensics",
+  "builds": [
+    {
+      "src": "fronted/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/assets/(.*)",
+      "dest": "/fronted/assets/$1"
+    },
+    {
+      "src": "/dashboard/(.*)",
+      "dest": "/fronted/dashboard/$1"
+    },
+    {
+      "src": "/meet/(.*)",
+      "dest": "/fronted/meet/$1"
+    },
+    {
+      "src": "/personal/(.*)",
+      "dest": "/fronted/personal/$1"
+    },
+    {
+      "src": "/personal",
+      "dest": "/fronted/personal/index.html"
+    },
+    {
+      "src": "/meet",
+      "dest": "/fronted/meet/index.html"
+    },
+    {
+      "src": "/dashboard",
+      "dest": "/fronted/dashboard/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/fronted/$1"
+    }
+  ]
+}

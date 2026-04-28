@@ -1171,7 +1171,7 @@
 
             function startPersonalAuditTimeout() {
                 if (personalResultTimer) clearTimeout(personalResultTimer);
-                addLog('SYSTEM: WAITING_FOR_PERSONAL_AUDITOR (45s)', '#ffaa00');
+                // Removed waiting log as requested
                 
                 personalResultTimer = setTimeout(() => {
                     addLog('SYSTEM: AUDITOR_TIMEOUT — APPLYING_FORENSIC_ENGINE_RESULT', 'var(--accent-neon)');
@@ -1195,11 +1195,11 @@
                 setTelemetry(cnnPct, bpm, cnnPct, cnnPct, 0);
 
                 if (data.label === 'Human') {
-                    resultOverlay.innerHTML = `<div class="bg-[var(--primary-neon)]/10 border-2 border-[var(--primary-neon)] text-[var(--primary-neon)] mono text-[10px] font-black px-6 py-2 rounded-full tracking-[0.4em] shadow-[0_0_30px_rgba(0,229,255,0.4)]">AUDITOR_VERIFIED_HUMAN</div>`;
+                    resultOverlay.innerHTML = `<div class="bg-[var(--primary-neon)]/10 border-2 border-[var(--primary-neon)] text-[var(--primary-neon)] mono text-[10px] font-black px-6 py-2 rounded-full tracking-[0.4em] shadow-[0_0_30px_rgba(0,229,255,0.4)]">AUDITOR_VERIFIED_HUMAN (${cnnPct}%)</div>`;
                     resultOverlay.classList.remove('hidden');
                     verdictModal.classList.remove('opacity-0', 'pointer-events-none');
                 } else {
-                    resultOverlay.innerHTML = `<div class="bg-red-500/10 border-2 border-red-500 text-red-500 mono text-[10px] font-black px-6 py-2 rounded-full tracking-[0.4em] shadow-[0_0_30_rgba(255,51,51,0.4)] animate-pulse">⚠ AUDITOR_AI_DETECTED</div>`;
+                    resultOverlay.innerHTML = `<div class="bg-red-500/10 border-2 border-red-500 text-red-500 mono text-[10px] font-black px-6 py-2 rounded-full tracking-[0.4em] shadow-[0_0_30_rgba(255,51,51,0.4)] animate-pulse">⚠ AUDITOR_AI_DETECTED (${cnnPct}%)</div>`;
                     resultOverlay.classList.remove('hidden');
                     mainConsole.classList.add('glitch-active');
                     setTimeout(() => mainConsole.classList.remove('glitch-active'), 2000);
