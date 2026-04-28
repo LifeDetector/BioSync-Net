@@ -80,7 +80,7 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
             msg_type = data.get("type", "")
 
             # Relay signaling messages: offer, answer, ice-candidate
-            if msg_type in ("offer", "answer", "ice", "ready", "leave", "START_FLASH", "FLASH_COMPLETE", "PERSONAL_RESULT"):
+            if msg_type in ("offer", "answer", "ice", "ready", "leave", "join", "START_FLASH", "FLASH_COMPLETE", "PERSONAL_RESULT"):
                 await broadcast_to_room(room_id, data, websocket)
 
     except WebSocketDisconnect:

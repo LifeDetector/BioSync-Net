@@ -181,6 +181,7 @@
         let pc = null;
         let ws = null;
         let myId = null;
+        let subjectId = null;
         const urlParams = new URLSearchParams(window.location.search);
         const roomId = urlParams.get('room') || 'default-room';
 
@@ -275,38 +276,43 @@
                     return;
                 }
 
-                if (msg.target_id && msg.target_id !== myId && msg.target_id !== 'all' && msg.target_id !== 'auditor') {
+                // Only filter out messages that have a target_id meant for someone else
+                // The subject sends target_id as our actual websocket ID (myId), NOT the string 'auditor'
+                if (msg.target_id && msg.target_id !== myId && msg.target_id !== 'all') {
                     return;
                 }
 
                 switch (msg.type) {
                     case 'join':
                         if (msg.role === 'subject') {
+                            subjectId = senderId;
                             statusText.textContent = 'SUBJECT_DETECTED';
-                            // Only start call if not already connected or connecting
+                            // Only start call if not already connected
                             if (!pc || pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
                                 await startCall(senderId);
                             }
                         }
                         break;
-                    case 'offer':
-                        if (!msg.target_id || msg.target_id === 'auditor' || msg.target_id === 'all') {
-                            await createPeerConnection(senderId);
+                    case 'answer':
+                        if (pc) {
                             await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-                            const answer = await pc.createAnswer();
-                            await pc.setLocalDescription(answer);
-                            ws.send(JSON.stringify({ type: 'answer', sdp: answer, room: roomId, target_id: senderId }));
                         }
                         break;
                     case 'ice':
-                        if (pc && msg.candidate && (!msg.target_id || msg.target_id === 'auditor')) {
-                            await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)).catch(e => console.warn(e));
+                        if (pc && msg.candidate) {
+                            try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); }
+                            catch (e) { console.warn('[ICE]', e); }
                         }
                         break;
                     case 'peer_left':
-                        remoteVideo.srcObject = null;
-                        statusText.textContent = 'PEER_DISCONNECTED';
-                        statusDot.className = 'w-2 h-2 bg-red-500 rounded-full';
+                        // Only react if the SUBJECT left, not the admin
+                        if (senderId === subjectId) {
+                            if (pc) { pc.close(); pc = null; }
+                            remoteVideo.srcObject = null;
+                            subjectId = null;
+                            statusText.textContent = 'SUBJECT_DISCONNECTED';
+                            statusDot.className = 'w-2 h-2 bg-red-500 rounded-full';
+                        }
                         break;
                     case 'ready':
                         // Someone new joined, re-announce ourselves

@@ -844,9 +844,12 @@
 
                         case 'join':
                             if (data.role === 'subject') {
-                                addLog('NETWORK: SUBJECT_NODE_DETECTED — INITIATING_HANDSHAKE', 'var(--primary-neon)');
                                 subjectId = senderId;
-                                await startCall(senderId);
+                                // Only initiate handshake if not already connected
+                                if (!pc || pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
+                                    addLog('NETWORK: SUBJECT_NODE_DETECTED — INITIATING_HANDSHAKE', 'var(--primary-neon)');
+                                    await startCall(senderId);
+                                }
                             } else if (data.role === 'auditor') {
                                 addLog('NETWORK: PERSONAL_AUDITOR_JOINED', 'var(--primary-neon)');
                             }
