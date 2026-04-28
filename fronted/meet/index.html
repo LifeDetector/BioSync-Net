@@ -113,7 +113,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('a') === '1') {
             const roomId = urlParams.get('room') || 'default-room';
-            window.location.href = '../personal/index.html?room=' + roomId;
+            window.location.href = '/personal?room=' + roomId;
         }
 
         // Minimal Plexus Animation (as requested - no extra graphs)
@@ -174,6 +174,7 @@
         let ws = null;
         let pcs = {}; // Map of sender_id -> RTCPeerConnection
         let localStream = null;
+        let myId = null;
 
         const iceConfig = {
             iceServers: [
@@ -248,9 +249,14 @@
 
                 const senderId = msg.sender_id;
 
+                if (msg.type === 'room_info') {
+                    myId = msg.your_id;
+                    return;
+                }
+
                 // If message has a target_id, ignore it if it's not for us
-                if (msg.target_id && msg.target_id !== 'all' && msg.target_id !== 'subject') {
-                    // This is a simplified check, ideally we'd have our own ID
+                if (msg.target_id && msg.target_id !== 'all' && msg.target_id !== 'subject' && msg.target_id !== myId) {
+                    return;
                 }
 
                 switch (msg.type) {

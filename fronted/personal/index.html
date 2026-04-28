@@ -177,6 +177,7 @@
         let selectedVerdict = null;
         let pc = null;
         let ws = null;
+        let myId = null;
         const urlParams = new URLSearchParams(window.location.search);
         const roomId = urlParams.get('room') || 'default-room';
 
@@ -241,6 +242,15 @@
             ws.onmessage = async (event) => {
                 const msg = JSON.parse(event.data);
                 const senderId = msg.sender_id;
+
+                if (msg.type === 'room_info') {
+                    myId = msg.your_id;
+                    return;
+                }
+
+                if (msg.target_id && msg.target_id !== myId && msg.target_id !== 'all' && msg.target_id !== 'auditor') {
+                    return;
+                }
 
                 switch (msg.type) {
                     case 'join':

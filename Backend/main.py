@@ -62,9 +62,13 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
     rooms[room_id].append(websocket)
     peer_count = len(rooms[room_id])
 
-    # Tell the new peer how many people are already in the room.
+    # Tell the new peer how many people are already in the room and what their own ID is.
     # If they are the second person, tell the first to initiate the offer.
-    await websocket.send_json({"type": "room_info", "peer_count": peer_count})
+    await websocket.send_json({
+        "type": "room_info", 
+        "peer_count": peer_count,
+        "your_id": str(id(websocket))
+    })
 
     if peer_count >= 2:
         # Notify all existing peers that someone new joined → they should send offer

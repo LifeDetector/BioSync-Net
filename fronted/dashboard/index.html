@@ -819,6 +819,7 @@
             let signalingSocket = null;
             let localStream = null;
             let subjectId = null;
+            let myId = null;
 
             function initSignaling() {
                 signalingSocket = new WebSocket(WS_URL + roomId);
@@ -837,6 +838,7 @@
 
                     switch (data.type) {
                         case 'room_info':
+                            myId = data.your_id;
                             addLog(`SYSTEM: ROOM_ACTIVE — PEERS: ${data.peer_count}`, 'var(--primary-neon)');
                             break;
 
@@ -859,14 +861,14 @@
                             break;
 
                         case 'answer':
-                            if (pc && (!data.target_id || data.target_id === 'admin')) {
+                            if (pc && (!data.target_id || data.target_id === myId)) {
                                 await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
                                 addLog('NETWORK: HANDSHAKE_COMPLETE', 'var(--primary-neon)');
                             }
                             break;
 
                         case 'ice':
-                            if (pc && data.candidate && (!data.target_id || data.target_id === 'admin')) {
+                            if (pc && data.candidate && (!data.target_id || data.target_id === myId)) {
                                 try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); }
                                 catch (e) { console.warn('[ICE]', e); }
                             }
