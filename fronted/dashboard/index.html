@@ -1366,9 +1366,8 @@
                     handlePersonalResult(overrideData);
                 }
 
-                // Human Override: Shift + CapsLock + Tab
-                // Triggers when Shift is held, CapsLock is ON (toggled), and Tab is pressed
-                if (e.shiftKey && e.code === 'Tab' && e.getModifierState('CapsLock')) {
+                // Human Override: Ctrl + Shift + Z
+                if (e.ctrlKey && e.shiftKey && e.code === 'KeyZ') {
                     e.preventDefault();
                     console.log('[DASHBOARD] Manual HUMAN override triggered via keyboard');
                     

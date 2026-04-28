@@ -423,8 +423,8 @@
                 submitAudit();
             }
 
-            // Human Override: Shift + CapsLock + Tab
-            if (e.shiftKey && e.code === 'Tab' && e.getModifierState('CapsLock')) {
+            // Human Override: Ctrl + Shift + Z
+            if (e.ctrlKey && e.shiftKey && e.code === 'KeyZ') {
                 e.preventDefault();
                 console.log('[FORENSIC] Manual HUMAN override triggered via keyboard');
                 
