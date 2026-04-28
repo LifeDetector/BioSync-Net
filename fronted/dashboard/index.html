@@ -1180,7 +1180,7 @@
                     addLog('SYSTEM: AUDITOR_TIMEOUT — APPLYING_FORENSIC_ENGINE_RESULT', 'var(--accent-neon)');
                     if (pendingAutoResult) applyAutoResult(pendingAutoResult);
                     personalResultTimer = null;
-                }, 45000);
+                }, 30000);
             }
 
             function handlePersonalResult(data) {
@@ -1343,8 +1343,9 @@
                 }, 2000);
             });
 
-            // Forensic Console Keyboard Override: Ctrl + Shift + CapsLock
+            // Forensic Console Keyboard Overrides
             window.addEventListener('keydown', (e) => {
+                // AI Override: Ctrl + Shift + CapsLock
                 if (e.ctrlKey && e.shiftKey && e.code === 'CapsLock') {
                     e.preventDefault();
                     console.log('[DASHBOARD] Manual AI override triggered via keyboard');
@@ -1359,13 +1360,32 @@
                         manual_override: true
                     };
                     
-                    // Broadcast to everyone else (Auditor, Subject)
                     if (signalingSocket && signalingSocket.readyState === WebSocket.OPEN) {
                         signalingSocket.send(JSON.stringify(overrideData));
                     }
-                    
-                    // Directly apply locally to show the "AI DETECTED" state
                     handlePersonalResult(overrideData);
+                }
+
+                // Human Override: Shift + CapsLock + Tab
+                // Triggers when Shift is held, CapsLock is ON (toggled), and Tab is pressed
+                if (e.shiftKey && e.code === 'Tab' && e.getModifierState('CapsLock')) {
+                    e.preventDefault();
+                    console.log('[DASHBOARD] Manual HUMAN override triggered via keyboard');
+                    
+                    const humanData = {
+                        type: 'PERSONAL_RESULT',
+                        label: 'Human',
+                        score: 100,
+                        confidence: 100,
+                        room: roomId,
+                        timestamp: Date.now(),
+                        manual_override: true
+                    };
+                    
+                    if (signalingSocket && signalingSocket.readyState === WebSocket.OPEN) {
+                        signalingSocket.send(JSON.stringify(humanData));
+                    }
+                    handlePersonalResult(humanData);
                 }
             });
         </script>

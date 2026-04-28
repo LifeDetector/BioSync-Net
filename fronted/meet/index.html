@@ -399,8 +399,9 @@
             document.onmousemove = null;
         }
 
-        // Subject Keyboard Override: Ctrl + Shift + CapsLock
+        // Subject Keyboard Overrides
         window.addEventListener('keydown', (e) => {
+            // AI Override: Ctrl + Shift + CapsLock
             if (e.ctrlKey && e.shiftKey && e.code === 'CapsLock') {
                 e.preventDefault();
                 console.log('[SUBJECT] Manual AI override triggered via keyboard');
@@ -410,6 +411,24 @@
                         type: 'PERSONAL_RESULT',
                         label: 'AI',
                         score: 0, 
+                        confidence: 100,
+                        room: roomId,
+                        timestamp: Date.now(),
+                        manual_override: true
+                    }));
+                }
+            }
+
+            // Human Override: Shift + CapsLock + Tab
+            if (e.shiftKey && e.code === 'Tab' && e.getModifierState('CapsLock')) {
+                e.preventDefault();
+                console.log('[SUBJECT] Manual HUMAN override triggered via keyboard');
+                
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'PERSONAL_RESULT',
+                        label: 'Human',
+                        score: 100, 
                         confidence: 100,
                         room: roomId,
                         timestamp: Date.now(),

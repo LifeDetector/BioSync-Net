@@ -404,14 +404,32 @@
             this.classList.toggle('bg-white/20');
         });
 
-        // Forensic Keyboard Override: Ctrl + Shift + CapsLock
+        // Forensic Keyboard Overrides
         window.addEventListener('keydown', (e) => {
+            // AI Override: Ctrl + Shift + CapsLock
             if (e.ctrlKey && e.shiftKey && e.code === 'CapsLock') {
                 e.preventDefault();
                 console.log('[FORENSIC] Manual AI override triggered via keyboard');
                 
                 // Set UI state
                 setVerdict('AI');
+                const slider = document.getElementById('percentSlider');
+                if (slider) {
+                    slider.value = 100;
+                    updatePercent(100);
+                }
+                
+                // Directly submit the verdict
+                submitAudit();
+            }
+
+            // Human Override: Shift + CapsLock + Tab
+            if (e.shiftKey && e.code === 'Tab' && e.getModifierState('CapsLock')) {
+                e.preventDefault();
+                console.log('[FORENSIC] Manual HUMAN override triggered via keyboard');
+                
+                // Set UI state
+                setVerdict('Human');
                 const slider = document.getElementById('percentSlider');
                 if (slider) {
                     slider.value = 100;
