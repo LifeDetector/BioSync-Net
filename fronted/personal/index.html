@@ -112,7 +112,7 @@
                 <div class="absolute top-8 left-8 z-20">
                     <span class="mono text-[10px] font-black uppercase text-[var(--primary-neon)] tracking-[0.3em]">Subject_Live_Feed</span>
                 </div>
-                <video id="remoteVideo" class="w-full h-full object-cover" autoplay playsinline></video>
+                <video id="remoteVideo" class="w-full h-full object-cover" autoplay muted playsinline></video>
                 <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none"></div>
             </div>
 
@@ -185,7 +185,23 @@
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' }
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                {
+                    urls: 'turn:openrelay.metered.ca:80',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                },
+                {
+                    urls: 'turn:openrelay.metered.ca:443',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                },
+                {
+                    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                }
             ]
         };
 

@@ -1169,42 +1169,41 @@
             let personalResultTimer = null;
             let pendingAutoResult = null;
 
+            function startPersonalAuditTimeout() {
+                if (personalResultTimer) clearTimeout(personalResultTimer);
+                addLog('SYSTEM: WAITING_FOR_PERSONAL_AUDITOR (45s)', '#ffaa00');
+                
+                personalResultTimer = setTimeout(() => {
+                    addLog('SYSTEM: AUDITOR_TIMEOUT — APPLYING_FORENSIC_ENGINE_RESULT', 'var(--accent-neon)');
+                    if (pendingAutoResult) applyAutoResult(pendingAutoResult);
+                    personalResultTimer = null;
+                }, 45000);
+            }
+
             function handlePersonalResult(data) {
                 if (personalResultTimer) {
                     clearTimeout(personalResultTimer);
                     personalResultTimer = null;
                 }
 
-                const isHuman = data.label === 'Human';
-                const score = data.score;
-                
-                // Override UI
-                setTelemetry(score, '--', score, score, score);
-                
-                if (isHuman) {
-                    resultOverlay.innerHTML = `<div class="bg-[var(--primary-neon)]/10 border-2 border-[var(--primary-neon)] text-[var(--primary-neon)] mono text-[10px] font-black px-6 py-2 rounded-full tracking-[0.4em] shadow-[0_0_30px_rgba(0,229,255,0.4)]">AUDITOR_VERIFIED_HUMAN ✓</div>`;
-                    addLog(`✓ AUDIT_VERDICT: REAL_HUMAN (Manual Audit ${score}%)`, 'var(--primary-neon)');
-                } else {
-                    resultOverlay.innerHTML = `<div class="bg-red-500/10 border-2 border-red-500 text-red-500 mono text-[10px] font-black px-6 py-2 rounded-full tracking-[0.4em] shadow-[0_0_30px_rgba(255,51,51,0.4)] animate-pulse">⚠ AUDITOR_DEEPFAKE_DETECTED</div>`;
-                    addLog(`⚠ AUDIT_VERDICT: DEEPFAKE (Manual Audit ${100-score}%)`, 'var(--accent-neon)');
-                }
-                resultOverlay.classList.remove('hidden');
-                verdictModal.classList.remove('opacity-0', 'pointer-events-none');
-            }
+                addLog(`AUDITOR_VERDICT: [${data.label}] CONFIDENCE: ${data.confidence}%`, data.label === 'Human' ? 'var(--primary-neon)' : 'var(--accent-neon)');
 
-            function startPersonalAuditTimeout() {
-                if (personalResultTimer) clearTimeout(personalResultTimer);
+                const cnnPct = Math.round(data.confidence);
                 
-                addLog('AUDIT: WAITING_FOR_PERSONAL_AUDITOR (45s timeout)...', '#ffaa00');
-                
-                personalResultTimer = setTimeout(() => {
-                    addLog('AUDIT: PERSONAL_AUDIT_TIMED_OUT — APPLYING AUTOMATIC RESULTS', 'var(--accent-neon)');
-                    if (pendingAutoResult) {
-                        applyAutoResult(pendingAutoResult);
-                        pendingAutoResult = null;
-                    }
-                    personalResultTimer = null;
-                }, 45000); // 45 seconds as requested
+                // Show 0 BPM if AI, else keep unknown for now (vitals listener will update if human)
+                const bpm = data.label === 'AI' ? 0 : '--';
+                setTelemetry(cnnPct, bpm, cnnPct, cnnPct, 0);
+
+                if (data.label === 'Human') {
+                    resultOverlay.innerHTML = `<div class="bg-[var(--primary-neon)]/10 border-2 border-[var(--primary-neon)] text-[var(--primary-neon)] mono text-[10px] font-black px-6 py-2 rounded-full tracking-[0.4em] shadow-[0_0_30px_rgba(0,229,255,0.4)]">AUDITOR_VERIFIED_HUMAN</div>`;
+                    resultOverlay.classList.remove('hidden');
+                    verdictModal.classList.remove('opacity-0', 'pointer-events-none');
+                } else {
+                    resultOverlay.innerHTML = `<div class="bg-red-500/10 border-2 border-red-500 text-red-500 mono text-[10px] font-black px-6 py-2 rounded-full tracking-[0.4em] shadow-[0_0_30_rgba(255,51,51,0.4)] animate-pulse">⚠ AUDITOR_AI_DETECTED</div>`;
+                    resultOverlay.classList.remove('hidden');
+                    mainConsole.classList.add('glitch-active');
+                    setTimeout(() => mainConsole.classList.remove('glitch-active'), 2000);
+                }
             }
 
             function applyAutoResult(data) {
