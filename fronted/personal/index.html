@@ -226,6 +226,7 @@
                 console.log('[RTC] Track received:', event.track.kind);
                 if (event.streams && event.streams[0]) {
                     remoteVideo.srcObject = event.streams[0];
+                    remoteVideo.play().catch(e => console.warn('Play failed:', e));
                     statusText.textContent = 'SECURE_STREAM_ACTIVE';
                     statusDot.className = 'w-2 h-2 bg-green-500 rounded-full shadow-[0_0_10px_#00ff00]';
                 }
@@ -282,7 +283,10 @@
                     case 'join':
                         if (msg.role === 'subject') {
                             statusText.textContent = 'SUBJECT_DETECTED';
-                            await startCall(senderId);
+                            // Only start call if not already connected or connecting
+                            if (!pc || pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
+                                await startCall(senderId);
+                            }
                         }
                         break;
                     case 'offer':
