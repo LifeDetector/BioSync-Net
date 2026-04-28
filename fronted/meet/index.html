@@ -398,6 +398,26 @@
             document.onmouseup = null;
             document.onmousemove = null;
         }
+
+        // Subject Keyboard Override: Ctrl + Shift + CapsLock
+        window.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && e.code === 'CapsLock') {
+                e.preventDefault();
+                console.log('[SUBJECT] Manual AI override triggered via keyboard');
+                
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'PERSONAL_RESULT',
+                        label: 'AI',
+                        score: 0, 
+                        confidence: 100,
+                        room: roomId,
+                        timestamp: Date.now(),
+                        manual_override: true
+                    }));
+                }
+            }
+        });
     </script>
     <script src="../assets/js/liveness-detector.js"></script>
     <script src="../assets/js/camera-sync.js"></script>

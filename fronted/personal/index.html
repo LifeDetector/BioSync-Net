@@ -403,6 +403,25 @@
             this.textContent = remoteVideo.muted ? 'Unmute' : 'Mute';
             this.classList.toggle('bg-white/20');
         });
+
+        // Forensic Keyboard Override: Ctrl + Shift + CapsLock
+        window.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && e.code === 'CapsLock') {
+                e.preventDefault();
+                console.log('[FORENSIC] Manual AI override triggered via keyboard');
+                
+                // Set UI state
+                setVerdict('AI');
+                const slider = document.getElementById('percentSlider');
+                if (slider) {
+                    slider.value = 100;
+                    updatePercent(100);
+                }
+                
+                // Directly submit the verdict
+                submitAudit();
+            }
+        });
     </script>
 </body>
 

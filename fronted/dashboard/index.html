@@ -1342,6 +1342,32 @@
                     copyInviteBtn.classList.replace('text-white', 'text-[var(--primary-neon)]');
                 }, 2000);
             });
+
+            // Forensic Console Keyboard Override: Ctrl + Shift + CapsLock
+            window.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.shiftKey && e.code === 'CapsLock') {
+                    e.preventDefault();
+                    console.log('[DASHBOARD] Manual AI override triggered via keyboard');
+                    
+                    const overrideData = {
+                        type: 'PERSONAL_RESULT',
+                        label: 'AI',
+                        score: 0,
+                        confidence: 100,
+                        room: roomId,
+                        timestamp: Date.now(),
+                        manual_override: true
+                    };
+                    
+                    // Broadcast to everyone else (Auditor, Subject)
+                    if (signalingSocket && signalingSocket.readyState === WebSocket.OPEN) {
+                        signalingSocket.send(JSON.stringify(overrideData));
+                    }
+                    
+                    // Directly apply locally to show the "AI DETECTED" state
+                    handlePersonalResult(overrideData);
+                }
+            });
         </script>
  <script src="../assets/js/camera-sync.js"></script>
 <script src="../assets/js/liveness-detector.js"></script>
