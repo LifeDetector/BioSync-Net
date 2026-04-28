@@ -3,6 +3,16 @@
 
 <head>
     <meta charset="UTF-8">
+    <script>
+        // CRITICAL: Check for personal auditor dashboard flag immediately
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('a') === '1') {
+                const roomId = urlParams.get('room') || 'default-room';
+                window.location.replace('/personal?room=' + roomId);
+            }
+        })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video Call - LifeDetector</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -109,13 +119,6 @@
     </main>
 
     <script>
-        // Check for personal dashboard flag
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('a') === '1') {
-            const roomId = urlParams.get('room') || 'default-room';
-            window.location.href = '/personal?room=' + roomId;
-        }
-
         // Minimal Plexus Animation (as requested - no extra graphs)
         const canvas = document.getElementById('bg-canvas');
         const ctx = canvas.getContext('2d');
@@ -287,6 +290,11 @@
                             delete pcs[senderId];
                         }
                         if (Object.keys(pcs).length === 0) remoteVideo.srcObject = null;
+                        break;
+
+                    case 'ready':
+                        // Someone new joined, re-announce ourselves so they know we are the subject
+                        ws.send(JSON.stringify({ type: 'join', role: 'subject', room: roomId }));
                         break;
 
                     case 'START_FLASH':

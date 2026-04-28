@@ -853,6 +853,8 @@
                             break;
 
                         case 'ready':
+                            // Someone new joined, re-announce ourselves
+                            signalingSocket.send(JSON.stringify({ type: 'join', role: 'admin', room: roomId }));
                             // Fallback for legacy behavior
                             if (!subjectId) {
                                 addLog('NETWORK: SIGNAL_DETECTED — ATTEMPTING_HANDSHAKE', 'var(--primary-neon)');
