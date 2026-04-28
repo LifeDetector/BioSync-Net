@@ -43,6 +43,8 @@ async def broadcast_to_room(room_id: str, message: dict, sender: WebSocket):
         for client in rooms[room_id]:
             if client != sender:
                 try:
+                    # Add sender ID to the message so recipients know who it's from
+                    message["sender_id"] = str(id(sender))
                     await client.send_json(message)
                 except Exception:
                     dead.append(client)

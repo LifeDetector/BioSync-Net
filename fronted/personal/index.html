@@ -198,7 +198,7 @@
             document.getElementById('btnAI').className = 'toggle-btn py-4 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest transition-all ' + (type === 'AI' ? 'active-ai' : '');
         }
 
-        async function createPeerConnection() {
+        async function createPeerConnection(targetId) {
             if (pc) pc.close();
             pc = new RTCPeerConnection(iceConfig);
 
@@ -209,7 +209,7 @@
 
             pc.onicecandidate = (event) => {
                 if (event.candidate && ws?.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ type: 'ice', candidate: event.candidate, room: roomId }));
+                    ws.send(JSON.stringify({ type: 'ice', candidate: event.candidate, room: roomId, target_id: targetId }));
                 }
             };
 
@@ -221,26 +221,45 @@
             };
         }
 
+        async function startCall(targetId) {
+            await createPeerConnection(targetId);
+            const offer = await pc.createOffer({ offerToReceiveVideo: true, offerToReceiveAudio: true });
+            await pc.setLocalDescription(offer);
+            ws.send(JSON.stringify({ type: 'offer', sdp: offer, room: roomId, target_id: targetId }));
+        }
+
         function initWebSocket() {
             const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
             ws = new WebSocket(`${wsProtocol}://${window.location.host}/ws/${roomId}`);
 
             ws.onopen = () => {
                 statusText.textContent = 'WAITING_FOR_PEER';
+                // Announce role
+                ws.send(JSON.stringify({ type: 'join', role: 'auditor', room: roomId }));
             };
 
             ws.onmessage = async (event) => {
                 const msg = JSON.parse(event.data);
+                const senderId = msg.sender_id;
+
                 switch (msg.type) {
+                    case 'join':
+                        if (msg.role === 'subject') {
+                            statusText.textContent = 'SUBJECT_DETECTED';
+                            await startCall(senderId);
+                        }
+                        break;
                     case 'offer':
-                        await createPeerConnection();
-                        await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-                        const answer = await pc.createAnswer();
-                        await pc.setLocalDescription(answer);
-                        ws.send(JSON.stringify({ type: 'answer', sdp: answer, room: roomId }));
+                        if (!msg.target_id || msg.target_id === 'auditor' || msg.target_id === 'all') {
+                            await createPeerConnection(senderId);
+                            await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+                            const answer = await pc.createAnswer();
+                            await pc.setLocalDescription(answer);
+                            ws.send(JSON.stringify({ type: 'answer', sdp: answer, room: roomId, target_id: senderId }));
+                        }
                         break;
                     case 'ice':
-                        if (pc && msg.candidate) {
+                        if (pc && msg.candidate && (!msg.target_id || msg.target_id === 'auditor')) {
                             await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)).catch(e => console.warn(e));
                         }
                         break;

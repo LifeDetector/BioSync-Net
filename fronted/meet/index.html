@@ -172,7 +172,7 @@
         const wsUrl = `${wsProtocol}://${window.location.host}/ws/${roomId}`;
 
         let ws = null;
-        let peerConnection = null;
+        let pcs = {}; // Map of sender_id -> RTCPeerConnection
         let localStream = null;
 
         const iceConfig = {
@@ -199,29 +199,30 @@
             ]
         };
 
-        async function createPeerConnection() {
-            if (peerConnection) peerConnection.close();
-            peerConnection = new RTCPeerConnection(iceConfig);
+        async function createPeerConnection(senderId) {
+            if (pcs[senderId]) pcs[senderId].close();
+            const pc = new RTCPeerConnection(iceConfig);
+            pcs[senderId] = pc;
 
             if (localStream) {
-                localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+                localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
             }
 
-            peerConnection.ontrack = event => {
+            pc.ontrack = event => {
                 remoteVideo.srcObject = event.streams[0];
                 remoteVideo.muted = false;
                 remoteVideo.play().catch(() => {});
             };
 
-            peerConnection.onicecandidate = event => {
+            pc.onicecandidate = event => {
                 if (event.candidate && ws?.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ type: 'ice', candidate: event.candidate, room: roomId }));
+                    ws.send(JSON.stringify({ type: 'ice', candidate: event.candidate, room: roomId, target_id: senderId }));
                 }
             };
 
-            peerConnection.onconnectionstatechange = () => {
-                const state = peerConnection.connectionState;
-                console.log('[WebRTC] Connection state:', state);
+            pc.onconnectionstatechange = () => {
+                const state = pc.connectionState;
+                console.log(`[WebRTC] Peer ${senderId} state:`, state);
                 const statusEl = document.getElementById('connectionStatus');
                 if (statusEl) {
                     statusEl.textContent = state.toUpperCase();
@@ -229,53 +230,57 @@
                 }
             };
 
-            peerConnection.oniceconnectionstatechange = () => {
-                console.log('[ICE] State:', peerConnection.iceConnectionState);
-            };
+            return pc;
         }
 
         function initWebSocket() {
             ws = new WebSocket(wsUrl);
 
-            ws.onopen = () => console.log('[WS] Subject connected, room:', roomId);
+            ws.onopen = () => {
+                console.log('[WS] Subject connected, room:', roomId);
+                // Announce role
+                ws.send(JSON.stringify({ type: 'join', role: 'subject', room: roomId }));
+            };
 
             ws.onmessage = async event => {
                 let msg;
                 try { msg = JSON.parse(event.data); } catch { return; }
 
+                const senderId = msg.sender_id;
+
+                // If message has a target_id, ignore it if it's not for us
+                if (msg.target_id && msg.target_id !== 'all' && msg.target_id !== 'subject') {
+                    // This is a simplified check, ideally we'd have our own ID
+                }
+
                 switch (msg.type) {
-                    case 'room_info':
-                        // Subject just waits — operator will send offer
-                        break;
-
-                    case 'ready':
-                        // Subject doesn't initiate — ignore
-                        break;
-
                     case 'offer':
-                        await createPeerConnection();
-                        await peerConnection.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-                        const answer = await peerConnection.createAnswer({ offerToReceiveVideo: true, offerToReceiveAudio: true });
-                        await peerConnection.setLocalDescription(answer);
-                        ws.send(JSON.stringify({ type: 'answer', sdp: answer, room: roomId }));
+                        const pc = await createPeerConnection(senderId);
+                        await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+                        ws.send(JSON.stringify({ type: 'answer', sdp: answer, room: roomId, target_id: senderId }));
                         break;
 
                     case 'answer':
-                        if (peerConnection) {
-                            await peerConnection.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+                        if (pcs[senderId]) {
+                            await pcs[senderId].setRemoteDescription(new RTCSessionDescription(msg.sdp));
                         }
                         break;
 
                     case 'ice':
-                        if (peerConnection && msg.candidate) {
-                            try { await peerConnection.addIceCandidate(new RTCIceCandidate(msg.candidate)); }
+                        if (pcs[senderId] && msg.candidate) {
+                            try { await pcs[senderId].addIceCandidate(new RTCIceCandidate(msg.candidate)); }
                             catch (e) { console.warn('[ICE]', e); }
                         }
                         break;
 
                     case 'peer_left':
-                        remoteVideo.srcObject = null;
-                        if (peerConnection) { peerConnection.close(); peerConnection = null; }
+                        if (pcs[senderId]) {
+                            pcs[senderId].close();
+                            delete pcs[senderId];
+                        }
+                        if (Object.keys(pcs).length === 0) remoteVideo.srcObject = null;
                         break;
 
                     case 'START_FLASH':

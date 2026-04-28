@@ -818,38 +818,55 @@
             let pc = null;
             let signalingSocket = null;
             let localStream = null;
+            let subjectId = null;
 
             function initSignaling() {
                 signalingSocket = new WebSocket(WS_URL + roomId);
 
                 signalingSocket.onopen = () => {
                     addLog('SYSTEM: SIGNALING_CONNECTED — WAITING FOR SUBJECT', 'var(--primary-neon)');
+                    // Announce role
+                    signalingSocket.send(JSON.stringify({ type: 'join', role: 'admin', room: roomId }));
                 };
 
                 signalingSocket.onmessage = async (event) => {
                     let data;
                     try { data = JSON.parse(event.data); } catch { return; }
 
+                    const senderId = data.sender_id;
+
                     switch (data.type) {
                         case 'room_info':
                             addLog(`SYSTEM: ROOM_ACTIVE — PEERS: ${data.peer_count}`, 'var(--primary-neon)');
                             break;
 
+                        case 'join':
+                            if (data.role === 'subject') {
+                                addLog('NETWORK: SUBJECT_NODE_DETECTED — INITIATING_HANDSHAKE', 'var(--primary-neon)');
+                                subjectId = senderId;
+                                await startCall(senderId);
+                            } else if (data.role === 'auditor') {
+                                addLog('NETWORK: PERSONAL_AUDITOR_JOINED', 'var(--primary-neon)');
+                            }
+                            break;
+
                         case 'ready':
-                            // Subject joined — operator sends the offer
-                            addLog('NETWORK: SUBJECT_NODE_DETECTED — INITIATING_HANDSHAKE', 'var(--primary-neon)');
-                            await startCall();
+                            // Fallback for legacy behavior
+                            if (!subjectId) {
+                                addLog('NETWORK: SIGNAL_DETECTED — ATTEMPTING_HANDSHAKE', 'var(--primary-neon)');
+                                await startCall(senderId);
+                            }
                             break;
 
                         case 'answer':
-                            if (pc) {
+                            if (pc && (!data.target_id || data.target_id === 'admin')) {
                                 await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
                                 addLog('NETWORK: HANDSHAKE_COMPLETE', 'var(--primary-neon)');
                             }
                             break;
 
                         case 'ice':
-                            if (pc && data.candidate) {
+                            if (pc && data.candidate && (!data.target_id || data.target_id === 'admin')) {
                                 try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); }
                                 catch (e) { console.warn('[ICE]', e); }
                             }
@@ -861,14 +878,16 @@
                             break;
 
                         case 'peer_left':
-                            addLog('SYSTEM: SUBJECT_NODE_DISCONNECTED', 'var(--accent-neon)');
-                            remoteVideo.srcObject = null;
-                            if (pc) { pc.close(); pc = null; }
+                            if (senderId === subjectId) {
+                                addLog('SYSTEM: SUBJECT_NODE_DISCONNECTED', 'var(--accent-neon)');
+                                remoteVideo.srcObject = null;
+                                if (pc) { pc.close(); pc = null; }
+                                subjectId = null;
+                            }
                             break;
 
                         case 'FLASH_COMPLETE':
                             addLog('SYSTEM: CHALLENGE_RESPONSE_RECEIVED — ANALYZING FLASH REACTION...', 'var(--primary-neon)');
-                            // Capture frame right after flash and analyze
                             flashPostAnalyze();
                             break;
                     }
@@ -878,7 +897,7 @@
                 signalingSocket.onclose = () => addLog('SYSTEM: SIGNALING_DISCONNECTED', 'var(--accent-neon)');
             }
 
-            async function createPeerConnection() {
+            async function createPeerConnection(targetId) {
                 if (pc) pc.close();
                 pc = new RTCPeerConnection(iceConfig);
 
@@ -895,7 +914,7 @@
 
                 pc.onicecandidate = (event) => {
                     if (event.candidate && signalingSocket?.readyState === WebSocket.OPEN) {
-                        signalingSocket.send(JSON.stringify({ type: 'ice', candidate: event.candidate, room: roomId }));
+                        signalingSocket.send(JSON.stringify({ type: 'ice', candidate: event.candidate, room: roomId, target_id: targetId }));
                     }
                 };
 
@@ -906,17 +925,13 @@
                     else if (state === 'disconnected') addLog('NETWORK: PEER_LOST', 'var(--accent-neon)');
                     else addLog('NETWORK: STATE → ' + state.toUpperCase(), 'var(--primary-neon)');
                 };
-
-                pc.oniceconnectionstatechange = () => {
-                    addLog('ICE: ' + pc.iceConnectionState.toUpperCase(), 'var(--primary-neon)');
-                };
             }
 
-            async function startCall() {
-                await createPeerConnection();
+            async function startCall(targetId) {
+                await createPeerConnection(targetId);
                 const offer = await pc.createOffer({ offerToReceiveVideo: true, offerToReceiveAudio: true });
                 await pc.setLocalDescription(offer);
-                signalingSocket.send(JSON.stringify({ type: 'offer', sdp: offer, room: roomId }));
+                signalingSocket.send(JSON.stringify({ type: 'offer', sdp: offer, room: roomId, target_id: targetId }));
                 addLog('NETWORK: OFFER_SENT', 'var(--primary-neon)');
             }
 
