@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Call - LifeDetector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../assets/css/globals.css">
+    <script src="../assets/js/theme.js"></script>
+    <style>
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .control-btn {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+
+        .control-btn.end-call {
+            background: #ea4335;
+        }
+
+        .control-btn.end-call:hover {
+            background: #d93025;
+            box-shadow: 0 0 30px rgba(234, 67, 53, 0.4);
+        }
+
+        #localVideo {
+            transform: scaleX(-1); /* Mirror self view */
+        }
+    </style>
+</head>
+
+<body class="bg-[#040d16] min-h-screen overflow-hidden">
+    <canvas id="bg-canvas"></canvas>
+
+    <main class="h-screen w-screen flex flex-col p-6">
+        <!-- Main Video Container -->
+        <div class="flex-1 relative rounded-[2rem] overflow-hidden bg-black shadow-2xl">
+            <video id="remoteVideo" class="w-full h-full object-cover" autoplay muted playsinline></video>
+
+            <!-- Self View PiP -->
+            <div id="localVideoContainer"
+                class="absolute bottom-6 right-6 w-64 h-48 rounded-2xl overflow-hidden glass border-white/10 shadow-2xl cursor-move z-50">
+                <video id="localVideo" class="w-full h-full object-cover" autoplay muted playsinline></video>
+                <div id="cameraOffOverlay" class="absolute inset-0 flex items-center justify-center bg-[#040d16] hidden">
+                    <svg class="w-12 h-12 text-white/20" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M15 8v8H5V8h10m1-2H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4V7c0-.55-.45-1-1-1z" />
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Participant Info -->
+            <div
+                class="absolute top-6 left-6 flex items-center gap-3 bg-black/20 backdrop-blur-md px-4 py-2 rounded-xl border border-white/5">
+                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span class="text-[10px] font-bold text-white uppercase tracking-widest">Live Session</span>
+                <span id="connectionStatus" class="text-[10px] font-bold uppercase tracking-widest" style="color:#ffffff">CONNECTING...</span>
+            </div>
+        </div>
+
+        <!-- Call Controls -->
+        <div class="h-24 flex items-center justify-center gap-6">
+            <button class="control-btn text-white">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+                    <path
+                        d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                </svg>
+            </button>
+            <button class="control-btn text-white">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path
+                        d="M15 8v8H5V8h10m1-2H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4V7c0-.55-.45-1-1-1z" />
+                </svg>
+            </button>
+            <button onclick="window.location.href='../index.html'" class="control-btn end-call text-white">
+                <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                    <path
+                        d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.52-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z" />
+                </svg>
+            </button>
+        </div>
+    </main>
+
+    <script>
+        // Check for personal dashboard flag
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('a') === '1') {
+            const roomId = urlParams.get('room') || 'default-room';
+            window.location.href = '../personal/index.html?room=' + roomId;
+        }
+
+        // Minimal Plexus Animation (as requested - no extra graphs)
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, particles = [];
+
+        function resize() {
+            width = window.innerWidth; height = window.innerHeight;
+            canvas.width = width; canvas.height = height;
+            initParticles();
+        }
+        window.addEventListener('resize', resize);
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * width; this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 0.3; this.vy = (Math.random() - 0.5) * 0.3;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+            }
+            draw() {
+                ctx.beginPath(); ctx.arc(this.x, this.y, 1, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(0, 229, 255, 0.3)"; ctx.fill();
+            }
+        }
+        function initParticles() {
+            particles = []; for (let i = 0; i < 50; i++) particles.push(new Particle());
+        }
+        function animate() {
+            requestAnimationFrame(animate);
+            ctx.fillStyle = '#040d16'; ctx.fillRect(0, 0, width, height);
+            particles.forEach(p => { p.update(); p.draw(); });
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    let d = Math.hypot(particles[i].x - particles[j].x, particles[i].y - particles[j].y);
+                    if (d < 150) {
+                        ctx.beginPath(); ctx.strokeStyle = `rgba(0, 229, 255, ${0.1 * (1 - d / 150)})`;
+                        ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+        resize(); animate();
+
+        // Setup Cameras + WebRTC
+        const remoteVideo = document.getElementById('remoteVideo');
+        const localVideo = document.getElementById('localVideo');
+
+        const roomId = new URLSearchParams(window.location.search).get('room') || 'default-room';
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const wsUrl = `${wsProtocol}://${window.location.host}/ws/${roomId}`;
+
+        let ws = null;
+        let peerConnection = null;
+        let localStream = null;
+
+        const iceConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                {
+                    urls: 'turn:openrelay.metered.ca:80',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                },
+                {
+                    urls: 'turn:openrelay.metered.ca:443',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                },
+                {
+                    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                }
+            ]
+        };
+
+        async function createPeerConnection() {
+            if (peerConnection) peerConnection.close();
+            peerConnection = new RTCPeerConnection(iceConfig);
+
+            if (localStream) {
+                localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+            }
+
+            peerConnection.ontrack = event => {
+                remoteVideo.srcObject = event.streams[0];
+                remoteVideo.muted = false;
+                remoteVideo.play().catch(() => {});
+            };
+
+            peerConnection.onicecandidate = event => {
+                if (event.candidate && ws?.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'ice', candidate: event.candidate, room: roomId }));
+                }
+            };
+
+            peerConnection.onconnectionstatechange = () => {
+                const state = peerConnection.connectionState;
+                console.log('[WebRTC] Connection state:', state);
+                const statusEl = document.getElementById('connectionStatus');
+                if (statusEl) {
+                    statusEl.textContent = state.toUpperCase();
+                    statusEl.style.color = state === 'connected' ? '#00e5ff' : state === 'failed' ? '#ff3333' : '#ffffff';
+                }
+            };
+
+            peerConnection.oniceconnectionstatechange = () => {
+                console.log('[ICE] State:', peerConnection.iceConnectionState);
+            };
+        }
+
+        function initWebSocket() {
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => console.log('[WS] Subject connected, room:', roomId);
+
+            ws.onmessage = async event => {
+                let msg;
+                try { msg = JSON.parse(event.data); } catch { return; }
+
+                switch (msg.type) {
+                    case 'room_info':
+                        // Subject just waits — operator will send offer
+                        break;
+
+                    case 'ready':
+                        // Subject doesn't initiate — ignore
+                        break;
+
+                    case 'offer':
+                        await createPeerConnection();
+                        await peerConnection.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+                        const answer = await peerConnection.createAnswer({ offerToReceiveVideo: true, offerToReceiveAudio: true });
+                        await peerConnection.setLocalDescription(answer);
+                        ws.send(JSON.stringify({ type: 'answer', sdp: answer, room: roomId }));
+                        break;
+
+                    case 'answer':
+                        if (peerConnection) {
+                            await peerConnection.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+                        }
+                        break;
+
+                    case 'ice':
+                        if (peerConnection && msg.candidate) {
+                            try { await peerConnection.addIceCandidate(new RTCIceCandidate(msg.candidate)); }
+                            catch (e) { console.warn('[ICE]', e); }
+                        }
+                        break;
+
+                    case 'peer_left':
+                        remoteVideo.srcObject = null;
+                        if (peerConnection) { peerConnection.close(); peerConnection = null; }
+                        break;
+
+                    case 'START_FLASH':
+                        startFlashChallenge();
+                        break;
+                }
+            };
+
+            ws.onerror = err => console.error('[WS] Error:', err);
+            ws.onclose = () => console.log('[WS] Disconnected');
+        }
+
+        // Flash challenge response
+        function startFlashChallenge() {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;transition:background 0.1s';
+            document.body.appendChild(overlay);
+            const colors = ['#ff0000', '#0000ff', '#00ff00'];
+            let step = 0;
+            const iv = setInterval(() => {
+                if (step < colors.length) {
+                    overlay.style.background = colors[step++];
+                } else {
+                    clearInterval(iv);
+                    document.body.removeChild(overlay);
+                    if (ws?.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'FLASH_COMPLETE', result: 'PASS', room: roomId }));
+                    }
+                }
+            }, 500);
+        }
+
+        // Control Button Interaction
+        const btns = document.querySelectorAll('.control-btn');
+        btns.forEach((btn, index) => {
+            btn.addEventListener('click', () => {
+                if (btn.classList.contains('end-call')) return;
+                btn.classList.toggle('bg-white/40');
+                btn.classList.toggle('text-[var(--primary-neon)]');
+                if (localStream) {
+                    if (index === 0) {
+                        const audioTrack = localStream.getAudioTracks()[0];
+                        if (audioTrack) audioTrack.enabled = !audioTrack.enabled;
+                    }
+                    if (index === 1) {
+                        const videoTrack = localStream.getVideoTracks()[0];
+                        if (videoTrack) videoTrack.enabled = !videoTrack.enabled;
+                        document.getElementById('localVideo').style.opacity = videoTrack.enabled ? '1' : '0.2';
+                        document.getElementById('cameraOffOverlay').classList.toggle('hidden', videoTrack.enabled);
+                    }
+                }
+            });
+        });
+
+        // End call
+        document.querySelector('.control-btn.end-call').addEventListener('click', () => {
+            if (ws) ws.close();
+            if (peerConnection) peerConnection.close();
+            window.location.href = '../index.html';
+        });
+
+        // Start camera then connect WebSocket
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(s => {
+                localStream = s;
+                localVideo.srcObject = s;
+                initWebSocket();
+            })
+            .catch(err => {
+                console.error('Camera Error:', err);
+            });
+        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+        
+        // Draggable PiP Implementation
+        const dragElem = document.getElementById('localVideoContainer');
+        dragElem.onmousedown = dragMouseDown;
+
+        function dragMouseDown(e) {
+            e = e || window.event;
+            e.preventDefault();
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            document.onmouseup = closeDragElement;
+            document.onmousemove = elementDrag;
+        }
+
+        function elementDrag(e) {
+            e = e || window.event;
+            e.preventDefault();
+            pos1 = pos3 - e.clientX;
+            pos2 = pos4 - e.clientY;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            dragElem.style.top = (dragElem.offsetTop - pos2) + "px";
+            dragElem.style.left = (dragElem.offsetLeft - pos1) + "px";
+            dragElem.style.bottom = "auto";
+            dragElem.style.right = "auto";
+        }
+
+        function closeDragElement() {
+            document.onmouseup = null;
+            document.onmousemove = null;
+        }
+    </script>
+    <script src="../assets/js/liveness-detector.js"></script>
+    <script src="../assets/js/camera-sync.js"></script>
+<script src="../assets/js/advanced-biosync.js"></script>
+    <script src="../assets/js/performance-booster.js"></script>
+</body>
+
+</html>

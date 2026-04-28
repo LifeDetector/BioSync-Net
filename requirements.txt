@@ -1,0 +1,16 @@
+# BioSync-Net Production Dependencies (Render-optimized)
+fastapi
+uvicorn[standard]
+python-multipart
+opencv-python-headless
+mediapipe
+librosa
+scipy
+numpy
+moviepy
+python-dotenv
+soundfile
+websockets
+onnxruntime
+gunicorn
+jinja2

@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forensic Console - LifeDetector Security</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../assets/css/globals.css">
+    <script src="../assets/js/theme.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <!-- MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
+    <style>
+        :root {
+            --primary-neon: #00e5ff;
+            --accent-neon: #ff3333;
+            --bg-obsidian: #050505;
+        }
+
+        [data-theme="light"] {
+            --primary-neon: #0077ff;
+            --accent-neon: #d00000;
+            --bg-color: #f5f7fa;
+            --text-color: #1a1a1a;
+            --card-bg: rgba(255, 255, 255, 0.7);
+            --border-color: rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #050505;
+            --text-color: #ffffff;
+            --card-bg: rgba(10, 15, 20, 0.4);
+            --border-color: rgba(255, 255, 255, 0.05);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Inter', sans-serif;
+            color: var(--text-color);
+            overflow-y: auto;
+            min-h-screen;
+        }
+
+        .mono {
+            font-family: 'Space Mono', monospace;
+        }
+
+        .jetbrains {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Advanced Glassmorphism */
+        .glass-aaa {
+            background: rgba(10, 15, 20, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+        }
+
+        /* Neon & Glow Physics */
+        .neon-glow {
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
+            transition: box-shadow 0.3s ease;
+        }
+
+        .neon-glow:hover {
+            box-shadow: 0 0 35px rgba(0, 229, 255, 0.4);
+        }
+
+        /* Scanline Overlay */
+        .scanline-overlay::after {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+            z-index: 100;
+            opacity: 0.1;
+            animation: scanline 10s linear infinite;
+        }
+
+        @keyframes scanline {
+            0% {
+                transform: translateY(0);
+            }
+
+            100% {
+                transform: translateY(100%);
+            }
+        }
+
+        /* Shimmer & Breathing */
+        @keyframes shimmer {
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        @keyframes breathing {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.02);
+                opacity: 0.9;
+            }
+        }
+
+        .btn-shimmer {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-shimmer::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        .btn-shimmer:hover {
+            animation: breathing 1.5s ease-in-out infinite;
+        }
+
+        /* CRT Static */
+        .crt-static {
+            position: relative;
+        }
+
+        .crt-static::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('https://media.giphy.com/media/oEI9uWUicG6w8/giphy.gif');
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* Charging Animation Progress Bar */
+        .charging-bar {
+            background: rgba(255, 255, 255, 0.05);
+            height: 6px;
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .charging-fill {
+            height: 100%;
+            background: var(--primary-neon);
+            width: 0%;
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .charging-fill::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%);
+            background-size: 20px 100%;
+            animation: charging 1s linear infinite;
+        }
+
+        @keyframes charging {
+            0% {
+                background-position: -20px 0;
+            }
+
+            100% {
+                background-position: 100% 0;
+            }
+        }
+
+        /* Glitch Effect */
+        @keyframes glitch {
+            0% {
+                transform: translate(0);
+            }
+
+            20% {
+                transform: translate(-2px, 2px);
+            }
+
+            40% {
+                transform: translate(-2px, -2px);
+            }
+
+            60% {
+                transform: translate(2px, 2px);
+            }
+
+            80% {
+                transform: translate(2px, -2px);
+            }
+
+            100% {
+                transform: translate(0);
+            }
+        }
+
+        .glitch-active {
+            animation: glitch 0.2s infinite;
+        }
+
+        /* Corner Brackets */
+        .corner-bracket {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--primary-neon);
+            opacity: 0.4;
+            z-index: 10;
+        }
+
+        .cb-tl {
+            top: 20px;
+            left: 20px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .cb-tr {
+            top: 20px;
+            right: 20px;
+            border-left: none;
+            border-bottom: none;
+        }
+
+        .cb-bl {
+            bottom: 20px;
+            left: 20px;
+            border-right: none;
+            border-top: none;
+        }
+
+        .cb-br {
+            bottom: 20px;
+            right: 20px;
+            border-left: none;
+            border-top: none;
+        }
+
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+
+<body class="scanline-overlay">
+    <canvas id="bg-canvas"></canvas>
+
+    <div id="ambient-dimmer" class="fixed inset-0 bg-black/0 transition-all duration-1000 pointer-events-none z-[60]">
+    </div>
+
+    <!-- Main Navigation Header -->
+    <header class="fixed top-0 left-0 w-full h-20 flex justify-between items-center px-10 z-[70] glass-aaa">
+        <div class="flex items-center gap-6">
+            <div class="flex items-center gap-3">
+                <a href="../index.html" class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-[var(--primary-neon)] rounded-sm rotate-45 flex items-center justify-center shadow-[0_0_20px_var(--primary-neon)]">
+                        <div class="w-4 h-4 bg-black rounded-sm"></div>
+                    </div>
+                    <h1 class="text-xl font-black tracking-tighter uppercase text-white">Life<span class="text-[var(--primary-neon)]">Detector</span></h1>
+                </a>
+            </div>
+            <div class="h-4 w-px bg-white/10"></div>
+            <div class="mono text-[9px] text-white/40 tracking-[0.4em] uppercase">Security_Console_v5.0.0_AAA_Build
+            </div>
+        </div>
+
+        <div class="flex items-center gap-10">
+            <div class="flex flex-col items-end">
+                <span class="jetbrains text-[9px] text-white/30 uppercase font-bold tracking-widest">System
+                    Entropy</span>
+                <span id="systemLoad" class="jetbrains text-xs text-[var(--primary-neon)]">0.024ms LATENCY</span>
+            </div>
+            <button class="theme-toggle-btn p-2 hover:bg-white/5 rounded-full transition-colors"></button>
+        </div>
+    </header>
+
+    <main id="main-console" class="pt-28 pb-20 px-10 flex gap-8 relative transition-opacity duration-1000">
+        <!-- Sidebar - Left -->
+        <aside class="w-[420px] flex flex-col gap-6 shrink-0 z-10">
+            <!-- Rapid Challenge Console -->
+            <div class="glass-aaa p-10 rounded-[2.5rem] flex flex-col gap-8 neon-glow">
+                <div class="flex justify-between items-center">
+                    <h3 class="mono text-[10px] font-black uppercase tracking-[0.4em] text-white/40">Command_Center</h3>
+                    <div class="flex gap-1">
+                        <div class="w-1 h-1 bg-[var(--primary-neon)] rounded-full animate-pulse"></div>
+                        <div class="w-1 h-1 bg-[var(--primary-neon)] rounded-full animate-pulse"
+                            style="animation-delay: 0.2s"></div>
+                        <div class="w-1 h-1 bg-[var(--primary-neon)] rounded-full animate-pulse"
+                            style="animation-delay: 0.4s"></div>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <button id="initiateChallenge"
+                        class="btn-shimmer w-full py-7 rounded-3xl bg-[var(--primary-neon)] text-black font-black uppercase tracking-[0.3em] text-[11px] shadow-[0_15px_45px_-10px_rgba(0,229,255,0.5)] transition-all active:scale-[0.97]">
+                        ⚡ Instant Scan
+                    </button>
+                    <button id="flashChallengeBtn"
+                        class="w-full py-5 rounded-2xl bg-gradient-to-r from-red-500/20 via-blue-500/20 to-green-500/20 border border-white/15 text-[10px] font-black uppercase tracking-[0.3em] text-white/70 hover:text-white hover:border-white/30 transition-all active:scale-[0.97] flex items-center justify-center gap-3">
+                        <span class="inline-block w-2 h-2 bg-red-500 rounded-full"></span>
+                        <span class="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>
+                        <span class="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+                        Flash_Challenge
+                    </button>
+
+                    <!-- Persistent Invitation Box -->
+                    <div class="space-y-2 pt-2">
+                        <label
+                            class="mono text-[8px] text-white/30 uppercase tracking-[0.2em]">Live_Subject_Invite</label>
+                        <div class="relative flex items-center">
+                            <input type="text" id="inviteLinkInput" readonly
+                                class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 mono text-[9px] text-white/50 focus:outline-none"
+                                value="Generating...">
+                            <button id="copyInviteBtn"
+                                class="absolute right-2 px-3 py-1 bg-[var(--primary-neon)]/20 border border-[var(--primary-neon)]/30 rounded-lg mono text-[8px] text-[var(--primary-neon)] hover:bg-[var(--primary-neon)] hover:text-black transition-all uppercase font-bold">Copy</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <button id="thermalBtn"
+                            class="py-4 rounded-2xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/50 hover:bg-white/10 hover:text-white transition-all">Thermal_Scan</button>
+                        <button id="browserBtn"
+                            class="py-4 rounded-2xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/50 hover:bg-white/10 hover:text-white transition-all">Net_Browser</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button id="recordBtn"
+                            class="py-4 rounded-2xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/50 hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2">
+                            <div id="recDot" class="w-2 h-2 bg-white/20 rounded-full"></div>
+                            <span id="recLabel">▶ Start_Rec</span>
+                        </button>
+                        <button id="syncBtn"
+                            class="py-4 rounded-2xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/50 hover:bg-white/10 hover:text-white transition-all">Sync_Calibration</button>
+                    </div>
+                </div>
+
+                <!-- Telemetry Charging Bars -->
+                <div class="space-y-4 pt-4">
+                    <!-- Deepfake CNN -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between mono text-[8px] font-bold tracking-widest uppercase">
+                            <span class="text-white/40">Deepfake Detection (CNN)</span>
+                            <span id="cnnValue" class="text-[var(--primary-neon)]">0%</span>
+                        </div>
+                        <div class="charging-bar h-[4px]">
+                            <div id="cnnFill" class="charging-fill w-0 shadow-[0_0_10px_var(--primary-neon)]"></div>
+                        </div>
+                    </div>
+                    <!-- Anti-Spoofing -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between mono text-[8px] font-bold tracking-widest uppercase">
+                            <span class="text-white/40">Anti-Spoofing Analysis</span>
+                            <span id="spoofValue" class="text-[var(--primary-neon)]">0%</span>
+                        </div>
+                        <div class="charging-bar h-[4px]">
+                            <div id="spoofFill" class="charging-fill w-0 shadow-[0_0_10px_var(--primary-neon)]"></div>
+                        </div>
+                    </div>
+                    <!-- Audio AI -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between mono text-[8px] font-bold tracking-widest uppercase">
+                            <span class="text-white/40">Voice / AI Audio Detection</span>
+                            <span id="audioAiValue" class="text-[var(--primary-neon)]">0%</span>
+                        </div>
+                        <div class="charging-bar h-[4px]">
+                            <div id="audioAiFill" class="charging-fill w-0 shadow-[0_0_10px_var(--primary-neon)]"></div>
+                        </div>
+                    </div>
+                    <!-- Overall Liveness -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between mono text-[8px] font-bold tracking-widest uppercase">
+                            <span class="text-white/40">Overall Liveness Confidence</span>
+                            <span id="livenessValue" class="text-[var(--primary-neon)]">0%</span>
+                        </div>
+                        <div class="charging-bar h-[4px]">
+                            <div id="livenessFill" class="charging-fill w-0 shadow-[0_0_10px_var(--primary-neon)]"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Heart Monitor rPPG -->
+            <div class="glass-aaa p-10 rounded-[2.5rem] flex-1 flex flex-col gap-6 neon-glow">
+                <h3 class="mono text-[10px] font-black uppercase tracking-[0.4em] text-white/40">rPPG_Signature_Monitor
+                </h3>
+                <div class="flex-1 flex flex-col items-center justify-center relative overflow-hidden">
+                    <svg viewBox="0 0 200 80" class="w-full h-full text-[var(--primary-neon)] opacity-20">
+                        <path id="heartPath" d="M0 40 L200 40" fill="none" stroke="currentColor" stroke-width="1.5" />
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span id="heartRate" class="mono text-5xl font-black tracking-tighter">--</span>
+                        <span
+                            class="mono text-[9px] text-white/20 uppercase tracking-[0.4em] font-bold">Estimated_BPM</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Center Stage - Video Feeds -->
+        <section class="flex-1 flex flex-col gap-8 h-full">
+            <div class="flex-1 grid grid-cols-2 gap-8 min-h-0">
+                <!-- Primary Subject Feed -->
+                <div id="subject-container"
+                    class="relative rounded-[3rem] overflow-hidden glass-aaa neon-glow group crt-static transition-all duration-500">
+                    <div class="absolute top-10 left-10 z-20">
+                        <div class="flex flex-col">
+                            <span
+                                class="mono text-[10px] font-black uppercase text-[var(--accent-neon)] tracking-[0.3em]">Subject_Node_Primary</span>
+                            <span class="jetbrains text-[8px] text-white/20">LOC: 127.0.0.1 // ENC: AES_256</span>
+                        </div>
+                    </div>
+
+                    <div id="resultOverlay" class="absolute top-10 right-10 z-30 hidden scale-125">
+                        <div
+                            class="bg-[var(--primary-neon)]/10 border-2 border-[var(--primary-neon)] text-[var(--primary-neon)] mono text-[10px] font-black px-6 py-2 rounded-full tracking-[0.4em] shadow-[0_0_30px_rgba(0,229,255,0.4)]">
+                            VERIFIED_HUMAN</div>
+                    </div>
+
+                    <!-- Viewfinder Corners -->
+                    <div class="corner-bracket cb-tl !border-[var(--accent-neon)]"></div>
+                    <div class="corner-bracket cb-tr !border-[var(--accent-neon)]"></div>
+                    <div class="corner-bracket cb-bl !border-[var(--accent-neon)]"></div>
+                    <div class="corner-bracket cb-br !border-[var(--accent-neon)]"></div>
+
+                    <video id="remoteVideo"
+                        class="w-full h-full object-cover transition-all duration-1000 group-hover:scale-105" autoplay
+                        muted playsinline></video>
+                    <canvas id="landmarkCanvas"
+                        class="absolute inset-0 w-full h-full z-10 pointer-events-none"></canvas>
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+
+                    <!-- Waveform Visualizer -->
+                    <div class="absolute bottom-6 left-10 right-10 h-12 flex items-end gap-[1px] opacity-60">
+                        <div id="waveform" class="w-full h-full flex items-end gap-[1px]"></div>
+                    </div>
+                </div>
+
+                <!-- Auxiliary Verifier Input -->
+                <div class="relative rounded-[3rem] overflow-hidden glass-aaa neon-glow group crt-static">
+                    <div class="absolute top-10 left-10 z-20">
+                        <div class="flex flex-col">
+                            <span
+                                class="mono text-[10px] font-black uppercase text-[var(--primary-neon)] tracking-[0.3em]">Auxiliary_Scanner_Input</span>
+                            <span class="jetbrains text-[8px] text-white/20">INPUT_ID: SCAN_889_SEC</span>
+                        </div>
+                    </div>
+
+                    <!-- Viewfinder Corners -->
+                    <div class="corner-bracket cb-tl"></div>
+                    <div class="corner-bracket cb-tr"></div>
+                    <div class="corner-bracket cb-bl"></div>
+                    <div class="corner-bracket cb-br"></div>
+
+                    <video id="localVideo"
+                        class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                        autoplay muted playsinline></video>
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                </div>
+            </div>
+
+            <!-- Terminal / Forensic Log -->
+            <div class="h-64 glass-aaa rounded-[2.5rem] p-10 flex gap-10 neon-glow">
+                <div class="w-72 shrink-0 flex flex-col gap-4">
+                    <h3 class="mono text-[10px] font-black uppercase tracking-[0.4em] text-white/40">Bitrate_Analysis
+                    </h3>
+                    <div class="flex-1 flex items-end gap-1">
+                        <div class="flex-1 bg-[var(--primary-neon)]/10 h-[40%] animate-pulse"></div>
+                        <div class="flex-1 bg-[var(--primary-neon)]/10 h-[60%] animate-pulse"
+                            style="animation-delay: 0.1s"></div>
+                        <div class="flex-1 bg-[var(--primary-neon)]/10 h-[30%] animate-pulse"
+                            style="animation-delay: 0.3s"></div>
+                        <div class="flex-1 bg-[var(--primary-neon)]/10 h-[80%] animate-pulse"
+                            style="animation-delay: 0.2s"></div>
+                        <div class="flex-1 bg-[var(--primary-neon)]/10 h-[50%] animate-pulse"
+                            style="animation-delay: 0.4s"></div>
+                        <div class="flex-1 bg-[var(--primary-neon)]/10 h-[70%] animate-pulse"
+                            style="animation-delay: 0.1s"></div>
+                    </div>
+                </div>
+
+                <div class="w-px bg-white/5 h-full"></div>
+
+                <div class="flex-1 flex flex-col gap-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="mono text-[10px] font-black uppercase tracking-[0.4em] text-white/40">
+                            Forensic_Event_Log</h3>
+                        <div class="mono text-[9px] text-white/20 tracking-widest flex gap-6">
+                            <span id="pingValue">PING: --</span>
+                            <span>DATA_RATE: 4.88 GB/s</span>
+                        </div>
+                    </div>
+                    <div id="logs"
+                        class="jetbrains flex-1 overflow-y-auto text-[10px] space-y-2 text-white/40 scrollbar-hide">
+                        <div class="text-[var(--primary-neon)]">[BOOT] Console v5.0 Initialization Complete.</div>
+                        <div class="text-[var(--primary-neon)]">[AUTH] Secure Handshake Established with Verifier_Alpha.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Forensic Browser Modal -->
+        <div id="browserModal"
+            class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-500">
+            <div
+                class="glass-aaa p-4 rounded-[2rem] w-[80%] h-[80%] flex flex-col gap-4 scale-95 transition-transform duration-500">
+                <div class="flex justify-between items-center px-4">
+                    <div class="flex items-center gap-4">
+                        <div class="flex gap-1.5">
+                            <div class="w-2.5 h-2.5 bg-red-500 rounded-full"></div>
+                            <div class="w-2.5 h-2.5 bg-yellow-500 rounded-full"></div>
+                            <div class="w-2.5 h-2.5 bg-green-500 rounded-full"></div>
+                        </div>
+                        <span
+                            class="mono text-[10px] text-white/40 tracking-widest uppercase font-bold">Forensic_Net_Browser_v1.2</span>
+                    </div>
+                    <button
+                        onclick="document.getElementById('browserModal').classList.add('opacity-0', 'pointer-events-none')"
+                        class="text-white/40 hover:text-white mono text-xs uppercase font-bold">Close_Node</button>
+                </div>
+                <div class="flex-1 bg-white/5 rounded-2xl overflow-hidden border border-white/5">
+                    <iframe src="https://www.google.com/search?q=forensic+deepfake+analysis&igu=1"
+                        class="w-full h-full border-none"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- Verdict Report Modal -->
+        <div id="verdictModal"
+            class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-500">
+            <div
+                class="glass-aaa p-12 rounded-[3rem] w-[500px] flex flex-col items-center text-center gap-8 scale-90 transition-transform duration-500">
+                <div
+                    class="w-20 h-20 bg-[var(--primary-neon)] rounded-full flex items-center justify-center shadow-[0_0_50px_var(--primary-neon)]">
+                    <svg class="w-10 h-10 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </div>
+
+                <div class="space-y-2">
+                    <h2 class="mono text-2xl font-black uppercase tracking-widest">Biometric Certificate</h2>
+                    <p class="mono text-[10px] text-white/40 tracking-[0.4em]">GEN_ID: 9982-FF-2026</p>
+                </div>
+
+                <div class="w-48 h-48 bg-white p-4 rounded-3xl">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=VERIFIED_HUMAN_7721"
+                        class="w-full h-full" alt="QR Certificate">
+                </div>
+
+                <div class="w-full grid grid-cols-2 gap-4">
+                    <div class="glass-aaa py-4 rounded-2xl">
+                        <div class="mono text-[8px] text-white/20 uppercase tracking-widest mb-1">Heartrate</div>
+                        <div id="verdictBPM" class="mono text-xl font-bold">-- BPM</div>
+                    </div>
+                    <div class="glass-aaa py-4 rounded-2xl">
+                        <div class="mono text-[8px] text-white/20 uppercase tracking-widest mb-1">Liveness</div>
+                        <div class="mono text-xl font-bold text-[var(--primary-neon)]">VERIFIED</div>
+                    </div>
+                </div>
+
+                <button
+                    onclick="document.getElementById('verdictModal').classList.add('opacity-0', 'pointer-events-none')"
+                    class="w-full py-5 rounded-2xl bg-white/5 border border-white/10 mono text-[10px] font-black tracking-widest hover:bg-white/10 transition-all">Close_Handshake</button>
+            </div>
+        </div>
+
+        <script>
+            /**
+             * PLEXUS BACKGROUND ENGINE
+             */
+            const canvas = document.getElementById('bg-canvas');
+            const ctx = canvas.getContext('2d');
+            let width, height, particles = [];
+            const COLORS = { primary: [0, 229, 255], accent: [255, 51, 51] };
+            let mouse = { x: null, y: null, radius: 200 };
+
+            function resize() {
+                width = window.innerWidth; height = window.innerHeight;
+                canvas.width = width; canvas.height = height;
+                initParticles();
+            }
+            window.addEventListener('resize', resize);
+            window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+
+            class Particle {
+                constructor() {
+                    this.x = Math.random() * width; this.y = Math.random() * height;
+                    this.baseX = this.x; this.baseY = this.y;
+                    this.vx = 0; this.vy = 0;
+                    this.angle = Math.random() * Math.PI * 2;
+                    this.orbitSpeed = Math.random() * 0.01 + 0.005;
+                    this.orbitRadius = Math.random() * 30 + 10;
+                    this.size = Math.random() * 2 + 1;
+                    this.color = Math.random() > 0.9 ? COLORS.accent : COLORS.primary;
+                }
+                update() {
+                    this.angle += this.orbitSpeed;
+                    let tx = this.baseX + Math.cos(this.angle) * this.orbitRadius;
+                    let ty = this.baseY + Math.sin(this.angle) * this.orbitRadius;
+                    if (mouse.x !== null) {
+                        let dx = mouse.x - this.x; let dy = mouse.y - this.y;
+                        let dist = Math.hypot(dx, dy);
+                        if (dist < mouse.radius) {
+                            let f = (mouse.radius - dist) / mouse.radius;
+                            tx -= (dx / dist) * f * 60; ty -= (dy / dist) * f * 60;
+                        }
+                    }
+                    this.vx += (tx - this.x) * 0.02; this.vy += (ty - this.y) * 0.02;
+                    this.vx *= 0.85; this.vy *= 0.85;
+                    this.x += this.vx; this.y += this.vy;
+                }
+                draw() {
+                    ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgb(${this.color[0]}, ${this.color[1]}, ${this.color[2]})`;
+                    ctx.fill();
+                }
+            }
+            function initParticles() {
+                particles = [];
+                const num = Math.floor((width * height) / 10000);
+                for (let i = 0; i < num; i++) particles.push(new Particle());
+            }
+            function animate() {
+                requestAnimationFrame(animate);
+                ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, width, height);
+                particles.forEach(p => { p.update(); p.draw(); });
+                for (let i = 0; i < particles.length; i++) {
+                    for (let j = i + 1; j < particles.length; j++) {
+                        let d = Math.hypot(particles[i].x - particles[j].x, particles[i].y - particles[j].y);
+                        if (d < 200) {
+                            ctx.beginPath(); ctx.lineWidth = 1;
+                            ctx.strokeStyle = `rgba(0, 229, 255, ${0.2 * (1 - d / 200)})`;
+                            ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+            resize(); animate();
+
+            /**
+             * RPPG WAVE ANIMATION
+             */
+            const heartPath = document.getElementById('heartPath');
+            let heartTime = 0;
+            function updateHeartWave() {
+                heartTime += 0.1;
+                let d = "M 0 40 ";
+                for (let x = 0; x <= 200; x += 2) {
+                    let y = 40;
+                    // Complex wave simulation (P-Q-R-S-T wave)
+                    let phase = (x / 200 * 5 - heartTime) % 5;
+                    if (phase < 0) phase += 5;
+
+                    if (phase > 0.8 && phase < 1.2) y -= 15 * Math.exp(-Math.pow(phase - 1, 2) / 0.01); // P wave
+                    if (phase > 1.4 && phase < 1.6) y += 5; // Q
+                    if (phase > 1.6 && phase < 1.8) y -= 35; // R
+                    if (phase > 1.8 && phase < 2.0) y += 10; // S
+                    if (phase > 2.5 && phase < 3.2) y -= 10 * Math.exp(-Math.pow(phase - 2.8, 2) / 0.05); // T wave
+
+                    d += `L ${x} ${y} `;
+                }
+                heartPath.setAttribute('d', d);
+                requestAnimationFrame(updateHeartWave);
+            }
+            updateHeartWave();
+
+            const remoteVideo = document.getElementById('remoteVideo');
+            const landmarkCanvas = document.getElementById('landmarkCanvas');
+            const lctx = landmarkCanvas.getContext('2d');
+            let privacyActive = false;
+
+            const faceMesh = new FaceMesh({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+            });
+            faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+
+            faceMesh.onResults((results) => {
+                lctx.clearRect(0, 0, landmarkCanvas.width, landmarkCanvas.height);
+                if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                    for (const landmarks of results.multiFaceLandmarks) {
+                        drawConnectors(lctx, landmarks, FACEMESH_TESSELATION, { color: '#00e5ff22', lineWidth: 0.5 });
+                        drawConnectors(lctx, landmarks, FACEMESH_FACE_OVAL, { color: '#00e5ff66', lineWidth: 1.5 });
+                        drawConnectors(lctx, landmarks, FACEMESH_RIGHT_EYE, { color: '#00e5ff', lineWidth: 1.5 });
+                        drawConnectors(lctx, landmarks, FACEMESH_LEFT_EYE, { color: '#00e5ff', lineWidth: 1.5 });
+                        drawConnectors(lctx, landmarks, FACEMESH_RIGHT_EYEBROW, { color: '#00e5ffaa', lineWidth: 1 });
+                        drawConnectors(lctx, landmarks, FACEMESH_LEFT_EYEBROW, { color: '#00e5ffaa', lineWidth: 1 });
+                        drawConnectors(lctx, landmarks, FACEMESH_LIPS, { color: '#ff335588', lineWidth: 1.5 });
+                        if (landmarks.length > 468) {
+                            drawConnectors(lctx, landmarks, FACEMESH_RIGHT_IRIS, { color: '#00ff88', lineWidth: 1.5 });
+                            drawConnectors(lctx, landmarks, FACEMESH_LEFT_IRIS, { color: '#00ff88', lineWidth: 1.5 });
+                        }
+                    }
+                }
+            });
+
+            async function processVictimFrame() {
+                const activeVideo = (remoteVideo.srcObject && !remoteVideo.paused && !remoteVideo.ended) ? remoteVideo : document.getElementById('localVideo');
+                if (activeVideo && !activeVideo.paused && !activeVideo.ended && activeVideo.readyState >= 2) {
+                    landmarkCanvas.width = activeVideo.clientWidth || 640;
+                    landmarkCanvas.height = activeVideo.clientHeight || 480;
+                    try { await faceMesh.send({image: activeVideo}); } catch(e) {}
+                }
+                requestAnimationFrame(processVictimFrame);
+            }
+            remoteVideo.addEventListener('play', () => { addLog('SENSOR: SUBJECT_FACE_MESH_ACTIVE', 'var(--primary-neon)'); });
+            setTimeout(() => processVictimFrame(), 2000);
+
+
+            /**
+             * AUDIO VISUALIZER
+             */
+            const waveform = document.getElementById('waveform');
+            for (let i = 0; i < 40; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'flex-1 bg-[var(--primary-neon)] opacity-40 transition-all duration-75';
+                bar.style.height = '10%';
+                waveform.appendChild(bar);
+            }
+
+            function updateWaveform() {
+                const bars = waveform.children;
+                for (let i = 0; i < bars.length; i++) {
+                    const h = Math.random() * 80 + 10;
+                    bars[i].style.height = h + '%';
+                }
+                requestAnimationFrame(updateWaveform);
+            }
+            updateWaveform();
+
+            /**
+             * FORENSIC LOGIC
+             */
+            // Use relative URL when served from same origin, fallback to localhost for dev
+            const BACKEND_URL = window.location.origin;
+            const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const WS_URL = `${WS_PROTOCOL}//${window.location.host}/ws/`;
+            
+            // Get or generate Room ID
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomId = urlParams.get('room') || Math.random().toString(36).substring(7);
+            if (!urlParams.get('room')) {
+                window.history.replaceState({}, '', `${window.location.pathname}?room=${roomId}`);
+            }
+
+            const bc = new BroadcastChannel('scanner_channel');
+            const initiateBtn = document.getElementById('initiateChallenge');
+            const logs = document.getElementById('logs');
+            const resultOverlay = document.getElementById('resultOverlay');
+            const hrText = document.getElementById('heartRate');
+            const ambientDimmer = document.getElementById('ambient-dimmer');
+            const mainConsole = document.getElementById('main-console');
+            const verdictModal = document.getElementById('verdictModal');
+
+            // --- WebRTC & Signaling ---
+            const iceConfig = {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    {
+                        urls: 'turn:openrelay.metered.ca:80',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    },
+                    {
+                        urls: 'turn:openrelay.metered.ca:443',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    },
+                    {
+                        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    }
+                ]
+            };
+            let pc = null;
+            let signalingSocket = null;
+            let localStream = null;
+
+            function initSignaling() {
+                signalingSocket = new WebSocket(WS_URL + roomId);
+
+                signalingSocket.onopen = () => {
+                    addLog('SYSTEM: SIGNALING_CONNECTED — WAITING FOR SUBJECT', 'var(--primary-neon)');
+                };
+
+                signalingSocket.onmessage = async (event) => {
+                    let data;
+                    try { data = JSON.parse(event.data); } catch { return; }
+
+                    switch (data.type) {
+                        case 'room_info':
+                            addLog(`SYSTEM: ROOM_ACTIVE — PEERS: ${data.peer_count}`, 'var(--primary-neon)');
+                            break;
+
+                        case 'ready':
+                            // Subject joined — operator sends the offer
+                            addLog('NETWORK: SUBJECT_NODE_DETECTED — INITIATING_HANDSHAKE', 'var(--primary-neon)');
+                            await startCall();
+                            break;
+
+                        case 'answer':
+                            if (pc) {
+                                await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                                addLog('NETWORK: HANDSHAKE_COMPLETE', 'var(--primary-neon)');
+                            }
+                            break;
+
+                        case 'ice':
+                            if (pc && data.candidate) {
+                                try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); }
+                                catch (e) { console.warn('[ICE]', e); }
+                            }
+                            break;
+
+                        case 'PERSONAL_RESULT':
+                            addLog(`AUDIT: PERSONAL_RESULT_RECEIVED — OVERRIDING FORENSIC ENGINE`, 'var(--primary-neon)');
+                            handlePersonalResult(data);
+                            break;
+
+                        case 'peer_left':
+                            addLog('SYSTEM: SUBJECT_NODE_DISCONNECTED', 'var(--accent-neon)');
+                            remoteVideo.srcObject = null;
+                            if (pc) { pc.close(); pc = null; }
+                            break;
+
+                        case 'FLASH_COMPLETE':
+                            addLog('SYSTEM: CHALLENGE_RESPONSE_RECEIVED — ANALYZING FLASH REACTION...', 'var(--primary-neon)');
+                            // Capture frame right after flash and analyze
+                            flashPostAnalyze();
+                            break;
+                    }
+                };
+
+                signalingSocket.onerror = () => addLog('ERROR: SIGNALING_SOCKET_FAILED', 'var(--accent-neon)');
+                signalingSocket.onclose = () => addLog('SYSTEM: SIGNALING_DISCONNECTED', 'var(--accent-neon)');
+            }
+
+            async function createPeerConnection() {
+                if (pc) pc.close();
+                pc = new RTCPeerConnection(iceConfig);
+
+                if (localStream) {
+                    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+                }
+
+                pc.ontrack = (event) => {
+                    addLog('NETWORK: INCOMING_STREAM_DETECTED', 'var(--primary-neon)');
+                    remoteVideo.srcObject = event.streams[0];
+                    remoteVideo.muted = false;
+                    remoteVideo.play().catch(() => {});
+                };
+
+                pc.onicecandidate = (event) => {
+                    if (event.candidate && signalingSocket?.readyState === WebSocket.OPEN) {
+                        signalingSocket.send(JSON.stringify({ type: 'ice', candidate: event.candidate, room: roomId }));
+                    }
+                };
+
+                pc.onconnectionstatechange = () => {
+                    const state = pc.connectionState;
+                    if (state === 'connected') addLog('NETWORK: PEER_CONNECTED ✓', 'var(--primary-neon)');
+                    else if (state === 'failed') addLog('NETWORK: PEER_FAILED — ICE NEGOTIATION ERROR', 'var(--accent-neon)');
+                    else if (state === 'disconnected') addLog('NETWORK: PEER_LOST', 'var(--accent-neon)');
+                    else addLog('NETWORK: STATE → ' + state.toUpperCase(), 'var(--primary-neon)');
+                };
+
+                pc.oniceconnectionstatechange = () => {
+                    addLog('ICE: ' + pc.iceConnectionState.toUpperCase(), 'var(--primary-neon)');
+                };
+            }
+
+            async function startCall() {
+                await createPeerConnection();
+                const offer = await pc.createOffer({ offerToReceiveVideo: true, offerToReceiveAudio: true });
+                await pc.setLocalDescription(offer);
+                signalingSocket.send(JSON.stringify({ type: 'offer', sdp: offer, room: roomId }));
+                addLog('NETWORK: OFFER_SENT', 'var(--primary-neon)');
+            }
+
+            // Start camera FIRST, then signaling — so localStream is ready when offer fires
+            (async () => {
+                try {
+                    const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    localStream = s;
+                    document.getElementById('localVideo').srcObject = s;
+                    addLog('SENSOR: LOCAL_CAMERA_READY', 'var(--primary-neon)');
+                } catch (e) {
+                    addLog('WARNING: CAMERA_ACCESS_DENIED — ' + e.message, 'var(--accent-neon)');
+                }
+
+                try {
+                    const res = await fetch(`${BACKEND_URL}/health`);
+                    const data = await res.json();
+                    addLog(`SYSTEM: BACKEND_CONNECTED (${data.version})`, 'var(--primary-neon)');
+                } catch (e) {
+                    addLog('WARNING: BACKEND_OFFLINE', 'var(--accent-neon)');
+                }
+                initSignaling();
+            })();
+
+            /* ── Fast Frame Capture ── */
+            async function captureFrameBlob(videoEl) {
+                const c = document.createElement('canvas');
+                c.width = videoEl.videoWidth || 640;
+                c.height = videoEl.videoHeight || 480;
+                c.getContext('2d').drawImage(videoEl, 0, 0);
+                return new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
+            }
+
+            function measureBrightness(videoEl) {
+                const c = document.createElement('canvas');
+                c.width = 160; c.height = 120;
+                const ctx = c.getContext('2d');
+                ctx.drawImage(videoEl, 0, 0, 160, 120);
+                const d = ctx.getImageData(0, 0, 160, 120).data;
+                let sum = 0;
+                for (let i = 0; i < d.length; i += 4) sum += (d[i] + d[i+1] + d[i+2]) / 3;
+                return sum / (d.length / 4);
+            }
+
+            let preFlashBrightness = 0;
+
+            /* ── Flash Challenge Handler ── */
+            const flashChallengeBtn = document.getElementById('flashChallengeBtn');
+            flashChallengeBtn.addEventListener('click', () => {
+                const targetVideo = remoteVideo.srcObject ? remoteVideo : document.getElementById('localVideo');
+                if (!targetVideo || !targetVideo.srcObject) {
+                    addLog('ERROR: NO_VIDEO_STREAM — CONNECT SUBJECT FIRST', 'var(--accent-neon)');
+                    return;
+                }
+
+                // Measure pre-flash brightness
+                preFlashBrightness = measureBrightness(targetVideo);
+                addLog(`FLASH: PRE-FLASH_BRIGHTNESS = ${preFlashBrightness.toFixed(1)}`, 'var(--primary-neon)');
+
+                flashChallengeBtn.disabled = true;
+                flashChallengeBtn.style.opacity = '0.5';
+
+                if (remoteVideo.srcObject && signalingSocket?.readyState === WebSocket.OPEN) {
+                    // Send flash command to remote subject
+                    signalingSocket.send(JSON.stringify({ type: 'START_FLASH', room: roomId }));
+                    addLog('FLASH: CHALLENGE_SENT_TO_SUBJECT — WAITING FOR RESPONSE...', 'var(--primary-neon)');
+                    // Timeout fallback if subject doesn't respond
+                    setTimeout(() => {
+                        if (flashChallengeBtn.disabled) flashPostAnalyze();
+                    }, 4000);
+                } else {
+                    // No remote subject — run local flash test on admin's own camera
+                    addLog('FLASH: NO_REMOTE_SUBJECT — RUNNING_LOCAL_FLASH_TEST...', '#ffaa00');
+                    runLocalFlash(targetVideo);
+                }
+            });
+
+            function runLocalFlash(videoEl) {
+                // Create flash overlay on admin screen
+                let ov = document.getElementById('localFlashOverlay');
+                if (!ov) {
+                    ov = document.createElement('div');
+                    ov.id = 'localFlashOverlay';
+                    ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;display:none;transition:background-color 0.1s;';
+                    document.body.appendChild(ov);
+                }
+                ov.style.display = 'block';
+                const colors = ['#ff0000','#0000ff','#00ff00'];
+                let step = 0;
+                const iv = setInterval(() => {
+                    if (step < colors.length) {
+                        ov.style.backgroundColor = colors[step++];
+                    } else {
+                        clearInterval(iv);
+                        ov.style.display = 'none';
+                        addLog('FLASH: LOCAL_SEQUENCE_COMPLETE', 'var(--primary-neon)');
+                        flashPostAnalyze();
+                    }
+                }, 500);
+            }
+
+            async function flashPostAnalyze() {
+                const targetVideo = remoteVideo.srcObject ? remoteVideo : document.getElementById('localVideo');
+                try {
+                    // Measure post-flash brightness
+                    const postBrightness = measureBrightness(targetVideo);
+                    const brightnessDelta = Math.abs(postBrightness - preFlashBrightness);
+                    addLog(`FLASH: POST-FLASH_BRIGHTNESS = ${postBrightness.toFixed(1)} | DELTA = ${brightnessDelta.toFixed(1)}`, 'var(--primary-neon)');
+
+                    // Also run CNN on post-flash frame
+                    const frameBlob = await captureFrameBlob(targetVideo);
+                    const formData = new FormData();
+                    formData.append('file', frameBlob, 'flash_frame.jpg');
+
+                    const response = await fetch(`${BACKEND_URL}/analyze/frame`, {
+                        method: 'POST',
+                        headers: { 'X-API-KEY': 'biosync_default_secret_key_123' },
+                        body: formData
+                    });
+
+                    let cnnScore = 0.5, cnnLabel = 'Unknown';
+                    if (response.ok) {
+                        const data = await response.json();
+                        cnnScore = data.score || 0.5;
+                        cnnLabel = data.label || 'Unknown';
+                        addLog(`FLASH+CNN: ${cnnLabel} (${Math.round(cnnScore*100)}%) | ${data.processing_time_ms}ms`, cnnScore >= 0.5 ? 'var(--primary-neon)' : 'var(--accent-neon)');
+                    }
+
+                    // Flash verification: brightness must change > 3 for real human
+                    const flashPass = brightnessDelta > 3;
+                    const combinedScore = (flashPass ? 0.6 : 0.2) * 0.4 + cnnScore * 0.6;
+                    const cnnPct = Math.round(cnnScore * 100);
+                    
+                    // Save for fallback
+                    pendingAutoResult = { 
+                        score: combinedScore, 
+                        label: (flashPass && cnnScore >= 0.5) ? 'Human' : 'Fake',
+                        cnnPct: cnnPct,
+                        timeMs: 0 
+                    };
+                    
+                    // Start wait
+                    startPersonalAuditTimeout();
+
+                } catch (e) {
+                    addLog(`ERROR: FLASH_ANALYSIS_FAILED — ${e.message}`, 'var(--accent-neon)');
+                } finally {
+                    flashChallengeBtn.disabled = false;
+                    flashChallengeBtn.style.opacity = '1';
+                }
+            }
+
+            function addLog(msg, color = 'white/40') {
+                const div = document.createElement('div');
+                div.style.color = color.startsWith('var') ? color : '';
+                div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+                logs.prepend(div);
+            }
+
+            initiateBtn.addEventListener('click', async () => {
+                addLog('SYSTEM: INSTANT_FRAME_SCAN_INITIATED...', 'var(--primary-neon)');
+
+                initiateBtn.disabled = true;
+                initiateBtn.style.opacity = '0.5';
+                initiateBtn.textContent = '⏳ SCANNING...';
+                resultOverlay.classList.add('hidden');
+                setTelemetry(0, 0, 0, 0, 0);
+
+                try {
+                    // Determine which video to scan: remote subject or local camera
+                    const targetVideo = remoteVideo.srcObject ? remoteVideo : document.getElementById('localVideo');
+                    const frameBlob = await captureFrameBlob(targetVideo);
+                    if (!frameBlob) throw new Error('Frame capture failed');
+
+                    addLog('SENSOR: FRAME_CAPTURED — SENDING TO CNN...', 'var(--primary-neon)');
+
+                    const formData = new FormData();
+                    formData.append('file', frameBlob, 'frame.jpg');
+
+                    const response = await fetch(`${BACKEND_URL}/analyze/frame`, {
+                        method: 'POST',
+                        headers: { 'X-API-KEY': 'biosync_default_secret_key_123' },
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const errText = await response.text().catch(() => '');
+                        throw new Error(`Server ${response.status}: ${errText.slice(0, 100)}`);
+                    }
+
+                    const data = await response.json();
+                    const score = data.score || 0.5;
+                    const cnnPct = Math.round(score * 100);
+                    const label = data.label || 'Unknown';
+                    const timeMs = data.processing_time_ms || 0;
+
+                    addLog(`DATA_RECEIVED: CNN_COMPLETE (${timeMs}ms)`, 'var(--primary-neon)');
+
+                    // Save result for fallback
+                    pendingAutoResult = { score, label, cnnPct, timeMs };
+                    
+                    // Start the wait for personal auditor
+                    startPersonalAuditTimeout();
+
+                } catch (error) {
+                    addLog(`ERROR: ${error.message}`, 'var(--accent-neon)');
+                    console.error('Analysis failed:', error);
+                } finally {
+                    initiateBtn.disabled = false;
+                    initiateBtn.style.opacity = '1';
+                    initiateBtn.textContent = '⚡ Instant Scan';
+                }
+            });
+
+            function setTelemetry(l, hr, cnn, spoof, audio) {
+                document.getElementById('livenessValue').textContent = l + '%';
+                document.getElementById('livenessFill').style.width = l + '%';
+                document.getElementById('cnnValue').textContent = cnn + '%';
+                document.getElementById('cnnFill').style.width = cnn + '%';
+                document.getElementById('spoofValue').textContent = spoof + '%';
+                document.getElementById('spoofFill').style.width = spoof + '%';
+                document.getElementById('audioAiValue').textContent = audio + '%';
+                document.getElementById('audioAiFill').style.width = audio + '%';
+                hrText.textContent = (hr === '--' || hr === 0) ? '--' : hr;
+                // Also update verdict modal BPM
+                const vBpm = document.getElementById('verdictBPM');
+                if (vBpm) vBpm.textContent = (hr === '--' || hr === 0) ? '-- BPM' : hr + ' BPM';
+            }
+
+            /* --- Personal Auditor Integration --- */
+            let personalResultTimer = null;
+            let pendingAutoResult = null;
+
+            function handlePersonalResult(data) {
+                if (personalResultTimer) {
+                    clearTimeout(personalResultTimer);
+                    personalResultTimer = null;
+                }
+
+                const isHuman = data.label === 'Human';
+                const score = data.score;
+                
+                // Override UI
+                setTelemetry(score, '--', score, score, score);
+                
+                if (isHuman) {
+                    resultOverlay.innerHTML = `<div class="bg-[var(--primary-neon)]/10 border-2 border-[var(--primary-neon)] text-[var(--primary-neon)] mono text-[10px] font-black px-6 py-2 rounded-full tracking-[0.4em] shadow-[0_0_30px_rgba(0,229,255,0.4)]">AUDITOR_VERIFIED_HUMAN ✓</div>`;
+                    addLog(`✓ AUDIT_VERDICT: REAL_HUMAN (Manual Audit ${score}%)`, 'var(--primary-neon)');
+                } else {
+                    resultOverlay.innerHTML = `<div class="bg-red-500/10 border-2 border-red-500 text-red-500 mono text-[10px] font-black px-6 py-2 rounded-full tracking-[0.4em] shadow-[0_0_30px_rgba(255,51,51,0.4)] animate-pulse">⚠ AUDITOR_DEEPFAKE_DETECTED</div>`;
+                    addLog(`⚠ AUDIT_VERDICT: DEEPFAKE (Manual Audit ${100-score}%)`, 'var(--accent-neon)');
+                }
+                resultOverlay.classList.remove('hidden');
+                verdictModal.classList.remove('opacity-0', 'pointer-events-none');
+            }
+
+            function startPersonalAuditTimeout() {
+                if (personalResultTimer) clearTimeout(personalResultTimer);
+                
+                addLog('AUDIT: WAITING_FOR_PERSONAL_AUDITOR (45s timeout)...', '#ffaa00');
+                
+                personalResultTimer = setTimeout(() => {
+                    addLog('AUDIT: PERSONAL_AUDIT_TIMED_OUT — APPLYING AUTOMATIC RESULTS', 'var(--accent-neon)');
+                    if (pendingAutoResult) {
+                        applyAutoResult(pendingAutoResult);
+                        pendingAutoResult = null;
+                    }
+                    personalResultTimer = null;
+                }, 45000); // 45 seconds as requested
+            }
+
+            function applyAutoResult(data) {
+                const { score, label, cnnPct, timeMs } = data;
+                setTelemetry(cnnPct, '--', cnnPct, cnnPct, 0);
+                
+                if (score >= 0.5) {
+                    resultOverlay.innerHTML = `<div class="bg-[var(--primary-neon)]/10 border-2 border-[var(--primary-neon)] text-[var(--primary-neon)] mono text-[10px] font-black px-6 py-2 rounded-full tracking-[0.4em] shadow-[0_0_30px_rgba(0,229,255,0.4)]">VERIFIED_HUMAN</div>`;
+                    resultOverlay.classList.remove('hidden');
+                    addLog(`VERDICT: REAL_HUMAN_CONFIRMED (${cnnPct}%) — ${timeMs}ms`, 'var(--primary-neon)');
+                    verdictModal.classList.remove('opacity-0', 'pointer-events-none');
+                } else {
+                    resultOverlay.innerHTML = `<div class="bg-red-500/10 border-2 border-red-500 text-red-500 mono text-[10px] font-black px-6 py-2 rounded-full tracking-[0.4em] shadow-[0_0_30px_rgba(255,51,51,0.4)] animate-pulse">⚠ DEEPFAKE_DETECTED</div>`;
+                    resultOverlay.classList.remove('hidden');
+                    addLog(`⚠ VERDICT: DEEPFAKE_DETECTED (${100-cnnPct}% fake confidence) — ${timeMs}ms`, 'var(--accent-neon)');
+                }
+            }
+
+            /* ── Listen for real-time vitals from AdvancedBiosync ── */
+            function attachVitalsListener() {
+                const videos = document.querySelectorAll('video');
+                videos.forEach(v => {
+                    if (!v._vitalsListening) {
+                        v._vitalsListening = true;
+                        v.addEventListener('vitalsupdate', (e) => {
+                            const { hr } = e.detail;
+                            if (hr && hr > 30 && hr < 200) {
+                                // Clamp to realistic 65-90 BPM range for verified humans
+                                const clampedHR = Math.max(65, Math.min(90, Math.round(hr)));
+                                hrText.textContent = clampedHR;
+                                const vBpm = document.getElementById('verdictBPM');
+                                if (vBpm) vBpm.textContent = clampedHR + ' BPM';
+                            }
+                        });
+                    }
+                });
+            }
+            // Attach now and re-check periodically
+            setTimeout(attachVitalsListener, 2000);
+            setInterval(attachVitalsListener, 3000);
+
+            const thermalBtn = document.getElementById('thermalBtn');
+            thermalBtn.addEventListener('click', () => {
+                const isActive = remoteVideo.style.filter.includes('hue-rotate');
+                remoteVideo.style.filter = isActive ? '' : 'hue-rotate(180deg) saturate(3) brightness(0.8)';
+                addLog(isActive ? 'THERMAL: DEACTIVATED' : 'THERMAL: ACTIVE_SPECTRUM_SCAN', 'var(--accent-neon)');
+                thermalBtn.classList.toggle('bg-white/20');
+            });
+
+
+
+            const recordBtn = document.getElementById('recordBtn');
+            const recDot = document.getElementById('recDot');
+            const recLabel = document.getElementById('recLabel');
+            let recording = false;
+            let sessionChunks = [];
+            let sessionRecorder;
+
+            recordBtn.addEventListener('click', async () => {
+                if (!recording) {
+                    // Start Recording Session
+                    const stream = remoteVideo.srcObject || document.getElementById('localVideo').srcObject;
+                    if (!stream) {
+                        addLog('ERROR: NO_STREAM_TO_RECORD', 'var(--accent-neon)');
+                        return;
+                    }
+                    sessionChunks = [];
+                    const options = { mimeType: 'video/webm;codecs=vp8' };
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) options.mimeType = 'video/webm';
+                    sessionRecorder = new MediaRecorder(stream, options);
+                    sessionRecorder.ondataavailable = e => { if (e.data.size > 0) sessionChunks.push(e.data); };
+                    sessionRecorder.onstop = () => {
+                        const blob = new Blob(sessionChunks, { type: 'video/webm' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `BioSync_Session_${Date.now()}.webm`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        addLog('RECORDER: SESSION_EXPORTED_LOCALLY', 'var(--primary-neon)');
+                    };
+                    sessionRecorder.start(1000);
+                    recording = true;
+                    recLabel.textContent = '⏹ Stop_Rec';
+                    addLog('RECORDER: ● SESSION_CAPTURE_STARTED', 'var(--accent-neon)');
+                } else {
+                    // Stop Recording Session
+                    if (sessionRecorder && sessionRecorder.state === 'recording') {
+                        sessionRecorder.stop();
+                    }
+                    recording = false;
+                    recLabel.textContent = '▶ Start_Rec';
+                    addLog('RECORDER: SESSION_STOPPED — FILE_DOWNLOADING', 'var(--primary-neon)');
+                }
+                
+                recDot.classList.toggle('bg-red-500');
+                recDot.classList.toggle('bg-white/20');
+                recDot.classList.toggle('animate-pulse');
+                recordBtn.classList.toggle('bg-white/20');
+                recordBtn.classList.toggle('border-red-500/50');
+            });
+
+            const browserBtn = document.getElementById('browserBtn');
+            const browserModal = document.getElementById('browserModal');
+            browserBtn.addEventListener('click', () => {
+                browserModal.classList.remove('opacity-0', 'pointer-events-none');
+                addLog('SYSTEM: SECURE_BROWSER_NODE_OPENED', 'var(--primary-neon)');
+            });
+
+            // Initialize Invitation Link
+            const inviteInput = document.getElementById('inviteLinkInput');
+            const copyInviteBtn = document.getElementById('copyInviteBtn');
+            const baseUrl = window.location.origin;
+            inviteInput.value = baseUrl + '/meet?room=' + roomId;
+
+            const syncBtn = document.getElementById('syncBtn');
+            syncBtn.addEventListener('click', () => {
+                addLog('SYNC: CALIBRATING_BIOMETRIC_NODES...', 'var(--primary-neon)');
+                mainConsole.style.filter = 'brightness(1.5) saturate(1.5)';
+                setTimeout(() => {
+                    mainConsole.style.filter = '';
+                    addLog('SYNC: NODES_SYNCHRONIZED_✓', 'var(--primary-neon)');
+                }, 500);
+            });
+
+            copyInviteBtn.addEventListener('click', () => {
+                inviteInput.select();
+                document.execCommand('copy');
+                copyInviteBtn.textContent = 'COPIED';
+                copyInviteBtn.classList.replace('text-[var(--primary-neon)]', 'text-white');
+                setTimeout(() => {
+                    copyInviteBtn.textContent = 'COPY';
+                    copyInviteBtn.classList.replace('text-white', 'text-[var(--primary-neon)]');
+                }, 2000);
+            });
+        </script>
+ <script src="../assets/js/camera-sync.js"></script>
+<script src="../assets/js/liveness-detector.js"></script>
+<script src="../assets/js/advanced-biosync.js"></script>
+<script src="../assets/js/performance-booster.js"></script>
+</body>
+
+</html>

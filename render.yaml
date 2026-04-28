@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: biosync-net
+    runtime: python
+    plan: free
+    rootDir: .
+    buildCommand: pip install -r requirements.txt && chmod +x start.sh
+    startCommand: ./start.sh
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: BIOSYNC_API_KEY
+        value: biosync_default_secret_key_123
+      - key: FRONTEND_DIR
+        value: /opt/render/project/src/fronted
+    healthCheckPath: /health
